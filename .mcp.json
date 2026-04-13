@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "flowsery": {
+      "type": "http",
+      "url": "https://mcp.flowsery.com/mcp",
+      "headers": {
+        "Authorization": "Bearer FLOWSERY_API_KEY_HERE"
+      }
+    }
+  }
+}

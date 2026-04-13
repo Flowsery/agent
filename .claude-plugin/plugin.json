@@ -1,0 +1,12 @@
+{
+  "name": "flowsery",
+  "description": "Query web analytics — real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles via Flowsery Analytics API",
+  "version": "1.0.0",
+  "author": {
+    "name": "Flowsery",
+    "url": "https://flowsery.com"
+  },
+  "repository": "https://github.com/flowsery/agent",
+  "license": "MIT",
+  "homepage": "https://flowsery.com/docs/api-introduction"
+}

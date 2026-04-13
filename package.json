@@ -1,0 +1,27 @@
+{
+  "name": "@flowsery/agent",
+  "version": "1.0.0",
+  "description": "Flowsery agent — query web analytics data from any AI agent",
+  "license": "MIT",
+  "author": "Flowsery",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flowsery/agent"
+  },
+  "homepage": "https://flowsery.com/docs/api-introduction",
+  "keywords": [
+    "agent",
+    "ai-agent",
+    "analytics",
+    "web-analytics",
+    "flowsery",
+    "mcp",
+    "claude",
+    "cursor",
+    "privacy",
+    "cookie-free"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "flowsery",
+  "owner": {
+    "name": "Flowsery",
+    "email": "contact@flowsery.com"
+  },
+  "metadata": {
+    "description": "Give your AI agent privacy-first web analytics — real-time visitors, breakdowns, revenue tracking, and visitor profiles",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "flowsery",
+      "source": "./",
+      "description": "Query web analytics — real-time visitors, traffic breakdowns by 20+ dimensions, revenue attribution, goal tracking, and visitor profiles via Flowsery Analytics API",
+      "version": "1.0.0",
+      "author": {
+        "name": "Flowsery"
+      },
+      "homepage": "https://flowsery.com/docs/api-introduction",
+      "repository": "https://github.com/flowsery/agent",
+      "license": "MIT",
+      "keywords": [
+        "analytics",
+        "web-analytics",
+        "privacy",
+        "mcp",
+        "traffic",
+        "revenue",
+        "visitors",
+        "cookie-free"
+      ],
+      "category": "analytics",
+      "strict": true
+    }
+  ]
+}
