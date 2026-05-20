@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const API_BASE = "https://analytics.flowsery.com";
+const API_BASE = "https://analytics.flowsery.com/analytics";
 const CONFIG_DIR = path.join(os.homedir(), ".config", "flowsery");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const LOCAL_CONFIG = path.join(process.cwd(), ".flowsery", "config.json");

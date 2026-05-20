@@ -50,7 +50,7 @@ All requests use Bearer token:
 Authorization: Bearer <API_KEY>
 ```
 
-Base URL: `https://analytics.flowsery.com`
+Base URL: `https://analytics.flowsery.com/analytics`
 
 **Config priority** (highest to lowest):
 1. `FLOWSERY_API_KEY` environment variable
