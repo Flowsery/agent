@@ -34,7 +34,7 @@ const request = async (method, endpoint, body = null) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     error(
-      "No API key found. Run: ./scripts/flowsery.js setup --key flow_xxxxx",
+      "No API key found. Run: ./scripts/flowsery.js setup --key flow_ws_xxxxx",
     );
     error("Get your API key at: https://flowsery.com/api-tokens");
     process.exit(1);
@@ -93,6 +93,9 @@ const parseArgs = (args) => {
 
 const buildQueryString = (parsed) => {
   const params = new URLSearchParams();
+  if (parsed.websiteId || parsed["website-id"])
+    params.set("websiteId", parsed.websiteId || parsed["website-id"]);
+  if (parsed.domain) params.set("domain", parsed.domain);
   if (parsed.startAt || parsed["start-at"])
     params.set("startAt", parsed.startAt || parsed["start-at"]);
   if (parsed.endAt || parsed["end-at"])
@@ -134,12 +137,26 @@ const buildQueryString = (parsed) => {
   return qs ? `?${qs}` : "";
 };
 
+const addWebsiteSelectorToBody = (parsed, body) => {
+  if (parsed.websiteId || parsed["website-id"]) {
+    body.websiteId = parsed.websiteId || parsed["website-id"];
+  }
+  if (parsed.domain) body.domain = parsed.domain;
+};
+
+const addWebsiteSelectorToParams = (parsed, params) => {
+  if (parsed.websiteId || parsed["website-id"]) {
+    params.set("websiteId", parsed.websiteId || parsed["website-id"]);
+  }
+  if (parsed.domain) params.set("domain", parsed.domain);
+};
+
 const COMMANDS = {
   setup: async (args) => {
     const parsed = parseArgs(args);
     const key = parsed.key || parsed["api-key"];
     if (!key) {
-      error("Usage: ./scripts/flowsery.js setup --key flow_xxxxx");
+      error("Usage: ./scripts/flowsery.js setup --key flow_ws_xxxxx");
       error("Get your API key at: https://flowsery.com/api-tokens");
       process.exit(1);
     }
@@ -149,8 +166,15 @@ const COMMANDS = {
     output({ status: "configured", location: global ? "global" : "local" });
   },
 
-  metadata: async () => {
-    const data = await request("GET", "/api/v1/metadata");
+  websites: async () => {
+    const data = await request("GET", "/api/v1/websites");
+    output(data);
+  },
+
+  metadata: async (args) => {
+    const parsed = parseArgs(args);
+    const qs = buildQueryString(parsed);
+    const data = await request("GET", `/api/v1/metadata${qs}`);
     output(data);
   },
 
@@ -175,13 +199,17 @@ const COMMANDS = {
     output(data);
   },
 
-  realtime: async () => {
-    const data = await request("GET", "/api/v1/realtime");
+  realtime: async (args) => {
+    const parsed = parseArgs(args);
+    const qs = buildQueryString(parsed);
+    const data = await request("GET", `/api/v1/realtime${qs}`);
     output(data);
   },
 
-  "realtime:map": async () => {
-    const data = await request("GET", "/api/v1/realtime/map");
+  "realtime:map": async (args) => {
+    const parsed = parseArgs(args);
+    const qs = buildQueryString(parsed);
+    const data = await request("GET", `/api/v1/realtime/map${qs}`);
     output(data);
   },
 
@@ -295,10 +323,13 @@ const COMMANDS = {
   visitor: async (args) => {
     const parsed = parseArgs(args);
     if (!parsed.id) {
-      error("Usage: ./scripts/flowsery.js visitor --id <visitor_id>");
+      error(
+        "Usage: ./scripts/flowsery.js visitor --id <visitor_id> [--website-id <id> | --domain example.com]",
+      );
       process.exit(1);
     }
-    const data = await request("GET", `/api/v1/visitors/${parsed.id}`);
+    const qs = buildQueryString(parsed);
+    const data = await request("GET", `/api/v1/visitors/${parsed.id}${qs}`);
     output(data);
   },
 
@@ -311,6 +342,7 @@ const COMMANDS = {
       process.exit(1);
     }
     const body = { name: parsed.name };
+    addWebsiteSelectorToBody(parsed, body);
     if (parsed["visitor-uid"] || parsed.visitorUid) {
       body.visitorUid = parsed["visitor-uid"] || parsed.visitorUid;
     }
@@ -329,15 +361,25 @@ const COMMANDS = {
   "goals:delete": async (args) => {
     const parsed = parseArgs(args);
     const params = new URLSearchParams();
+    addWebsiteSelectorToParams(parsed, params);
+    let hasDeleteFilter = false;
     if (parsed["visitor-id"] || parsed.visitorId)
       params.set("visitorId", parsed["visitor-id"] || parsed.visitorId);
-    if (parsed.name) params.set("name", parsed.name);
-    if (parsed.startAt || parsed["start-at"])
+    if (parsed["visitor-id"] || parsed.visitorId) hasDeleteFilter = true;
+    if (parsed.name) {
+      params.set("name", parsed.name);
+      hasDeleteFilter = true;
+    }
+    if (parsed.startAt || parsed["start-at"]) {
       params.set("startAt", parsed.startAt || parsed["start-at"]);
-    if (parsed.endAt || parsed["end-at"])
+      hasDeleteFilter = true;
+    }
+    if (parsed.endAt || parsed["end-at"]) {
       params.set("endAt", parsed.endAt || parsed["end-at"]);
+      hasDeleteFilter = true;
+    }
     const qs = params.toString();
-    if (!qs) {
+    if (!hasDeleteFilter) {
       error(
         "At least one filter required: --visitor-id, --name, --start-at, --end-at",
       );
@@ -355,7 +397,7 @@ const COMMANDS = {
       !(parsed["transaction-id"] || parsed.transactionId)
     ) {
       error(
-        'Usage: ./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123 [--visitor-uid <uid>]',
+        "Usage: ./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123 [--visitor-uid <uid>]",
       );
       process.exit(1);
     }
@@ -364,6 +406,7 @@ const COMMANDS = {
       currency: parsed.currency,
       transactionId: parsed["transaction-id"] || parsed.transactionId,
     };
+    addWebsiteSelectorToBody(parsed, body);
     if (parsed["visitor-uid"] || parsed.visitorUid)
       body.visitorUid = parsed["visitor-uid"] || parsed.visitorUid;
     if (parsed.email) body.email = parsed.email;
@@ -379,19 +422,29 @@ const COMMANDS = {
   "payments:delete": async (args) => {
     const parsed = parseArgs(args);
     const params = new URLSearchParams();
-    if (parsed["transaction-id"] || parsed.transactionId)
+    addWebsiteSelectorToParams(parsed, params);
+    let hasDeleteFilter = false;
+    if (parsed["transaction-id"] || parsed.transactionId) {
       params.set(
         "transactionId",
         parsed["transaction-id"] || parsed.transactionId,
       );
-    if (parsed["visitor-id"] || parsed.visitorId)
+      hasDeleteFilter = true;
+    }
+    if (parsed["visitor-id"] || parsed.visitorId) {
       params.set("visitorId", parsed["visitor-id"] || parsed.visitorId);
-    if (parsed.startAt || parsed["start-at"])
+      hasDeleteFilter = true;
+    }
+    if (parsed.startAt || parsed["start-at"]) {
       params.set("startAt", parsed.startAt || parsed["start-at"]);
-    if (parsed.endAt || parsed["end-at"])
+      hasDeleteFilter = true;
+    }
+    if (parsed.endAt || parsed["end-at"]) {
       params.set("endAt", parsed.endAt || parsed["end-at"]);
+      hasDeleteFilter = true;
+    }
     const qs = params.toString();
-    if (!qs) {
+    if (!hasDeleteFilter) {
       error(
         "At least one filter required: --transaction-id, --visitor-id, --start-at, --end-at",
       );
@@ -408,6 +461,11 @@ const COMMANDS = {
       commands: Object.keys(COMMANDS).filter((c) => c !== "help"),
       docs: "https://flowsery.com/docs/api-introduction",
       api_tokens: "https://flowsery.com/api-tokens",
+      token_types: {
+        workspace:
+          "flow_ws_ tokens can list/access every website in the workspace",
+        website: "flow_ keys access one website only",
+      },
     });
   },
 };
