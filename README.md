@@ -1,5 +1,7 @@
 # Flowsery Agent
 
+[![smithery badge](https://smithery.ai/badge/tarasshyn/flowsery)](https://smithery.ai/servers/tarasshyn/flowsery)
+
 Give your AI agent the ability to query web analytics — real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles.
 
 **Privacy-first, cookie-free analytics.** Alternative to Google Analytics.
