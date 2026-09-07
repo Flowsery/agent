@@ -1,0 +1,50 @@
+{
+  "name": "@flowsery/mcp-server",
+  "version": "1.0.0",
+  "description": "Flowsery Analytics MCP Server — AI agent integration for privacy-first web analytics",
+  "homepage": "https://flowsery.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Flowsery/agent.git",
+    "directory": "mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/Flowsery/agent/issues"
+  },
+  "author": "Flowsery <contact@flowsery.com> (https://flowsery.com)",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "flowsery-mcp": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "jose": "^6.2.10",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  },
+  "keywords": [
+    "mcp",
+    "flowsery",
+    "analytics",
+    "web-analytics",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "windsurf"
+  ]
+}

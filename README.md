@@ -70,8 +70,32 @@ For deeper integration with Claude Desktop, Cursor, or other MCP-compatible clie
 }
 ```
 
+### Run it locally
+
+The server source lives in [`mcp-server/`](./mcp-server). Run it over stdio with [Bun](https://bun.sh):
+
+```json
+{
+  "mcpServers": {
+    "flowsery": {
+      "command": "bun",
+      "args": ["run", "/path/to/agent/mcp-server/src/index.ts"],
+      "env": { "FLOWSERY_API_KEY": "flow_sk_live_your_key" }
+    }
+  }
+}
+```
+
+Or with Docker:
+
+```bash
+docker build -t flowsery-mcp .
+docker run -i -e FLOWSERY_API_KEY=flow_sk_live_your_key flowsery-mcp
+```
+
 ## Links
 
+- [MCP Server](./mcp-server)
 - [Flowsery](https://flowsery.com)
 - [API Documentation](https://flowsery.com/docs/api-introduction)
 - [API Tokens](https://flowsery.com/api-tokens)
