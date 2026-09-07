@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "flowsery",
+  "version": "1.0.0",
+  "description": "Query privacy-first web analytics from your agent: visitors, sessions, revenue, goals, realtime, breakdowns by page, referrer, country, device, and campaign, plus visitor journeys and AI-detected site issues from Flowsery.",
+  "author": {
+    "name": "Flowsery",
+    "email": "contact@flowsery.com",
+    "url": "https://flowsery.com"
+  },
+  "homepage": "https://flowsery.com/docs/api-introduction",
+  "repository": "https://github.com/Flowsery/agent",
+  "license": "MIT",
+  "keywords": [
+    "flowsery",
+    "web-analytics",
+    "analytics",
+    "session-replay",
+    "cookieless"
+  ],
+  "logo": "https://flowsery.com/logo_small.png"
+}

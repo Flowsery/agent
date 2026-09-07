@@ -1,7 +1,8 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
   "mcpServers": {
     "flowsery": {
-      "type": "http",
+      "type": "streamable-http",
       "url": "https://mcp.flowsery.com/mcp",
       "headers": {
         "Authorization": "Bearer ${FLOWSERY_API_KEY}"
