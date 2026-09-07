@@ -5,7 +5,7 @@ description: >
   Retrieve real-time visitor counts, time series data, breakdowns by 24 dimensions (device,
   page, country, referrer, campaign, channel, UTM params, exit links, etc.), visitor profiles
   with activity timelines, custom goal tracking, and revenue attribution.
-last-updated: 2026-05-27
+last-updated: 2026-09-07
 allowed-tools: Bash(./scripts/flowsery.js:*)
 ---
 
@@ -88,71 +88,75 @@ Get your API key at: https://flowsery.com/api-tokens
 | Command                                   | Description                                          |
 | ----------------------------------------- | ---------------------------------------------------- |
 | `./scripts/flowsery.js setup --key <key>` | Configure API key                                    |
-| `./scripts/flowsery.js websites`          | List websites accessible by the token                |
-| `./scripts/flowsery.js metadata`          | Get website config (domain, timezone, currency, KPI) |
+| `./scripts/flowsery.js websites`          | List websites the token can read (id, domain, timezone, currency, KPI). Call first with a workspace token |
+| `./scripts/flowsery.js metadata`          | Website settings (domain, timezone, currency, KPI). Without `--website-id` on a workspace token it returns the website list |
 | `./scripts/flowsery.js help`              | List all available commands                          |
 
 ### Analytics Queries
 
 | Command                                           | Description                                                        |
 | ------------------------------------------------- | ------------------------------------------------------------------ |
-| `./scripts/flowsery.js overview`                  | Aggregated site metrics (visitors, sessions, bounce rate, revenue) |
-| `./scripts/flowsery.js timeseries --interval day` | Time series data by hour/day/week/month                            |
-| `./scripts/flowsery.js realtime`                  | Current active visitor count                                       |
-| `./scripts/flowsery.js realtime:map`              | Active visitors with geographic data                               |
+| `./scripts/flowsery.js overview`                  | Headline totals for a date range as one row (visitors, sessions, bounce rate, revenue, conversion rate). Default window: last 30 days |
+| `./scripts/flowsery.js timeseries --interval day` | The same metrics bucketed by hour/day/week/month with totals. Use for trends; match the interval to the range |
+| `./scripts/flowsery.js realtime`                  | Visitors active in the last 5 minutes. No date or filter flags, no history; poll at most every 5 s |
+| `./scripts/flowsery.js realtime:map`              | Active visitors with geographic location for a live map. Use `countries`/`cities` for geography over a date range |
 
 ### Breakdown Reports
 
-| Command                                             | Description                       |
-| --------------------------------------------------- | --------------------------------- |
-| `./scripts/flowsery.js pages`                       | Top pages by visitors             |
-| `./scripts/flowsery.js referrers`                   | Traffic sources                   |
-| `./scripts/flowsery.js countries`                   | Visitors by country               |
-| `./scripts/flowsery.js regions`                     | Visitors by region                |
-| `./scripts/flowsery.js cities`                      | Visitors by city                  |
-| `./scripts/flowsery.js devices`                     | Desktop vs mobile vs tablet       |
-| `./scripts/flowsery.js browsers`                    | Browser distribution              |
-| `./scripts/flowsery.js operating-systems`           | OS distribution                   |
-| `./scripts/flowsery.js campaigns`                   | UTM campaign performance          |
-| `./scripts/flowsery.js hostnames`                   | Traffic by hostname               |
-| `./scripts/flowsery.js channels`                    | Marketing channel breakdown       |
-| `./scripts/flowsery.js goals`                       | Goal completion stats             |
-| `./scripts/flowsery.js breakdown --dimension <dim>` | Generic breakdown (any dimension) |
+All breakdown commands return rows with `value`, `visitors`, `revenue` and `percentage`, ordered by visitors descending, plus `pagination.total`. They accept the date range (default: last 30 days), `--limit` (default 100, max 1000), `--offset` and every filter flag.
+
+| Command                                             | Description                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `./scripts/flowsery.js pages`                       | Page paths ranked by visitors. Use `breakdown --dimension entry_page` for landing pages, `exit_link` for outbound clicks        |
+| `./scripts/flowsery.js referrers`                   | Referring domains. Use `channels` for the GA4-style mix and `campaigns` for UTM-tagged traffic                                |
+| `./scripts/flowsery.js countries`                   | Visitors by country (coarsest geography). Add `--filter_country` to `regions`/`cities` to drill in                            |
+| `./scripts/flowsery.js regions`                     | Visitors by region/state (ISO 3166-2 code such as `US-CA`)                                                                   |
+| `./scripts/flowsery.js cities`                      | Visitors by city. Long tail: filter by country or region first, or raise `--limit`                                           |
+| `./scripts/flowsery.js devices`                     | Desktop vs mobile vs tablet (three rows). `browsers`/`operating-systems` give the software split                             |
+| `./scripts/flowsery.js browsers`                    | Browser names only. Versions via `breakdown --dimension browser_version`                                                     |
+| `./scripts/flowsery.js operating-systems`           | OS names only. Versions via `breakdown --dimension os_version`                                                               |
+| `./scripts/flowsery.js campaigns`                   | `utm_campaign` values; untagged traffic is absent. Other UTM params via `breakdown --dimension utm_source` etc.               |
+| `./scripts/flowsery.js hostnames`                   | Visitors per hostname, for sites tracking several domains or subdomains                                                      |
+| `./scripts/flowsery.js channels`                    | GA4-aligned channels (Organic Search, Paid Social, Direct...) from referrer and UTM. Start here for the traffic mix           |
+| `./scripts/flowsery.js goals`                       | Every goal (including auto-created `payment`/`free_trial`) with completions in the window. Filter and limit flags are ignored |
+| `./scripts/flowsery.js breakdown --dimension <dim>` | Any of 24 dimensions; the only route to `entry_page`, `exit_link`, `*_version`, `utm_*`, `ref`, `source`, `all_params`       |
 
 ### Visitor Data
 
 | Command                                           | Description                                 |
 | ------------------------------------------------- | ------------------------------------------- |
-| `./scripts/flowsery.js visitor --id <visitor_id>` | Full visitor profile with activity timeline |
+| `./scripts/flowsery.js visitor --id <visitor_id>` | Full profile of one visitor (PII) with a newest-first timeline; lists hold the 100 most recent items; unknown ids return 404 |
 
 ### Goal Tracking
 
 | Command                                                                  | Description                  |
 | ------------------------------------------------------------------------ | ---------------------------- |
-| `./scripts/flowsery.js goals:create --name "signup" --visitor-uid <uid>` | Track a custom goal event    |
-| `./scripts/flowsery.js goals:delete --name "signup"`                     | Delete goal events by filter |
+| `./scripts/flowsery.js goals:create --name "signup" --visitor-uid <uid>` | Append one goal completion. The goal is created on first use; repeating the call counts it twice. Omit `--visitor-uid` for an anonymous completion |
+| `./scripts/flowsery.js goals:delete --name "signup"`                     | Permanently delete completions matching all given filters (AND). Needs at least one of `--visitor-id`, `--name`, `--start-at`, `--end-at`; confirm first |
 
 ### Revenue Tracking
 
 | Command                                                                                        | Description                      |
 | ---------------------------------------------------------------------------------------------- | -------------------------------- |
-| `./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123` | Record a payment                 |
-| `./scripts/flowsery.js payments:delete --transaction-id pay_123`                               | Delete payment records by filter |
+| `./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123` | Record a payment. The transaction id must be unique; `--refund` with an existing id marks that payment refunded instead of adding a record. Also records a `payment` goal |
+| `./scripts/flowsery.js payments:delete --transaction-id pay_123`                               | Permanently delete payments matching all given filters (AND). Needs at least one of `--transaction-id`, `--visitor-id`, `--start-at`, `--end-at`; prefer `--refund` to keep history |
 
 ### Common Flags (all query commands)
 
 | Flag                   | Description                                                     |
 | ---------------------- | --------------------------------------------------------------- |
-| `--startAt <ISO date>` | Start of date range (e.g. `2026-01-01`)                         |
-| `--endAt <ISO date>`   | End of date range (e.g. `2026-01-31`)                           |
+| `--startAt <ISO date>` | Start of date range (e.g. `2026-01-01`). Default: 30 days ago   |
+| `--endAt <ISO date>`   | End of date range (e.g. `2026-01-31`). Default: now             |
 | `--timezone <IANA>`    | Timezone (e.g. `America/New_York`). Falls back to site default. |
-| `--limit <n>`          | Max results (1-1000, default: 100)                              |
-| `--offset <n>`         | Pagination offset                                               |
+| `--limit <n>`          | Max rows (1-1000, default: 100), ordered by visitors descending |
+| `--offset <n>`         | Rows to skip; compare with `pagination.total`                   |
 | `--fields <list>`      | Comma-separated metrics to include                              |
 | `--website-id <id>`    | Website to query when using a workspace token                   |
 | `--domain <domain>`    | Website domain to query when using a workspace token            |
 
 ### Filter Flags (all query commands)
+
+Filters combine with AND. Values are the ones the matching breakdown returns, and every filter accepts the same operators: `v` is, `!v` is not, `~v` contains, `!~v` does not contain, `a|b` any of.
 
 | Flag                            | Description                                     |
 | ------------------------------- | ----------------------------------------------- |
@@ -235,7 +239,8 @@ Flowsery has a native MCP server. If you're using Claude Desktop, Cursor, or any
 - **Delete with caution** — `goals:delete` and `payments:delete` are irreversible; always confirm with the user before running
 - **Revenue data is sensitive** — when displaying payment or revenue data, ask the user about the appropriate level of detail
 - **Rate limits** — avoid polling `realtime` more than once per 5 seconds
-- **Date ranges** — when the user says "this month" or "last week", calculate the actual ISO dates
+- **Date ranges** — when the user says "this month" or "last week", calculate the actual ISO dates; without dates the API uses the last 30 days ending now, so say which window the numbers cover
+- **Refunds** — reverse a charge with `payments:create --refund` and the original transaction id; `payments:delete` erases the record from every report
 - **Workspace tokens** — always call `websites` first, choose the correct website, and include `--website-id` or `--domain` on subsequent commands
 - **Timezone** — call `metadata --website-id <id>` first to get the site's timezone; use it for all subsequent queries
 
@@ -249,4 +254,6 @@ Flowsery has a native MCP server. If you're using Claude Desktop, Cursor, or any
 - Check `realtime` before and after deploying content changes to see immediate impact
 - Use `visitor --id <id>` to build a full picture of a specific user's journey
 - For revenue questions, use `overview --fields revenue,conversion_rate` or `timeseries --fields revenue`
-- Use `channels` to understand your traffic mix before drilling into specific sources
+- Use `channels` to understand your traffic mix before drilling into specific sources with `referrers` or `campaigns`
+- Use `breakdown --dimension entry_page` for landing pages; `pages` ranks every page viewed
+- `goals` ignores filter and limit flags; use `breakdown --dimension goal` when you need them
