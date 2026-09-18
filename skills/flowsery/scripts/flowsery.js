@@ -34,9 +34,9 @@ const request = async (method, endpoint, body = null) => {
   const apiKey = getApiKey();
   if (!apiKey) {
     error(
-      "No API key found. Run: ./scripts/flowsery.js setup --key flow_ws_xxxxx",
+      "No API token found. Run: ./scripts/flowsery.js setup --key flow_ws_xxxxx",
     );
-    error("Get your API key at: https://flowsery.com/api-tokens");
+    error("Get your API token at: https://flowsery.com/api-tokens");
     process.exit(1);
   }
   const url = `${API_BASE}${endpoint}`;
@@ -157,12 +157,12 @@ const COMMANDS = {
     const key = parsed.key || parsed["api-key"];
     if (!key) {
       error("Usage: ./scripts/flowsery.js setup --key flow_ws_xxxxx");
-      error("Get your API key at: https://flowsery.com/api-tokens");
+      error("Get your API token at: https://flowsery.com/api-tokens");
       process.exit(1);
     }
     const global = !parsed.local;
     saveApiKey(key, global);
-    info(`API key saved ${global ? "globally" : "locally"}.`);
+    info(`API token saved ${global ? "globally" : "locally"}.`);
     output({ status: "configured", location: global ? "global" : "local" });
   },
 

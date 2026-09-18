@@ -5,10 +5,10 @@
   "homepage": "https://flowsery.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TarasShyn/flowsery-mcp.git"
+    "url": "git+https://github.com/Flowsery/agent.git"
   },
   "bugs": {
-    "url": "https://github.com/TarasShyn/flowsery-mcp/issues"
+    "url": "https://github.com/Flowsery/agent/issues"
   },
   "author": "Flowsery <contact@flowsery.com> (https://flowsery.com)",
   "license": "MIT",
