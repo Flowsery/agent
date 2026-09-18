@@ -1,0 +1,15 @@
+{
+  "name": "flowsery",
+  "version": "1.0.0",
+  "description": "Privacy-first web analytics and session issues from Gemini CLI",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "flowsery": {
+      "httpUrl": "https://mcp.flowsery.com/mcp",
+      "oauth": {
+        "enabled": true
+      },
+      "timeout": 30000
+    }
+  }
+}
