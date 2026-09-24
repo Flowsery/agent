@@ -215,6 +215,16 @@ const destructiveAnnotations = {
   openWorldHint: false,
 };
 
+type RealtimeMapVisitor = Record<string, unknown>;
+type RealtimeMapResponse = { data?: RealtimeMapVisitor[] } & Record<string, unknown>;
+
+const PERSONAL_MAP_FIELDS = ["name", "email", "userId", "totalRevenue", "isCustomer"];
+
+const withoutPersonalFields = (visitor: RealtimeMapVisitor) =>
+  Object.fromEntries(
+    Object.entries(visitor).filter(([key]) => !PERSONAL_MAP_FIELDS.includes(key)),
+  );
+
 const toolResult = (data: unknown) => {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
@@ -386,14 +396,20 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
         "Get the visitors active on the site in the last 5 minutes with their geographic location, for a live map view. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
       inputSchema: websiteSelectorFields,
       outputSchema: resultSchema(
-        "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude, longitude, browser, os, deviceType, currentUrl, referrer, pageviews, totalRevenue, isCustomer, and name/email when identified.",
+        "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude, longitude, browser, os, deviceType, currentUrl, referrer, and pageviews. Names, emails and per-visitor revenue are left out; use get_visitor for one specific visitor.",
       ),
       annotations: readOnlyAnnotations,
     },
     async (params) => {
       try {
-        const data = await client.get("/realtime/map", cleanParams(params));
-        return toolResult(data);
+        const data = await client.get<RealtimeMapResponse>(
+          "/realtime/map",
+          cleanParams(params),
+        );
+        return toolResult({
+          ...data,
+          data: (data.data ?? []).map(withoutPersonalFields),
+        });
       } catch (error) {
         return toolError(error);
       }
@@ -698,13 +714,13 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Visitor Profile",
       description:
-        "Get one visitor's full profile: geo, device, and browser identity, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue (total, customer flag, seconds to first conversion), the identified profile (userId, name, email), and a merged timeline of pageviews, goals, and payments, newest first. Contains personal data: call it only when asked about a specific visitor and surface the minimum needed. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId comes from the _fs_vid cookie or the dashboard; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
+        "Get one visitor's full profile: geo, device, and browser identity, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue (total, customer flag, seconds to first conversion), the identified profile (userId, name, email), and a merged timeline of pageviews, goals, and payments, newest first. Contains personal data: call it only when asked about a specific visitor and surface the minimum needed. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         visitorId: z
           .string()
           .describe(
-            "Visitor ID, the _fs_vid cookie value set by the tracking script (also shown in the dashboard visitor view)",
+            "Visitor record ID from get_realtime_map or the dashboard visitor view (not the _fs_vid cookie value)",
           ),
       },
       outputSchema: resultSchema(
@@ -938,7 +954,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Track Payment",
       description:
-        "Record a payment so revenue appears in get_overview, get_timeseries, and the visitor profile. Skip it when the site's provider (Stripe, LemonSqueezy, Polar, and other connected providers) is tracked automatically; use track_goal for conversions without revenue. transactionId must be unique: a repeated id is rejected, not deduplicated. A new payment also records a payment goal completion (free_trial when amount is 0); isRenewal skips that. isRefund with an existing transactionId marks that payment refunded by amount instead of adding a row. Attribution looks up a known visitor by visitorUid, customerId, or email; with no match the revenue is kept but its source shows as Unknown. Requires websiteId or domain with a workspace token.",
+        "Record an analytics payment; this never charges a customer, moves money, or issues a refund. Revenue appears in get_overview, get_timeseries, and the visitor profile. Skip it when the site's provider (Stripe, LemonSqueezy, Polar, and other connected providers) is tracked automatically; use track_goal for conversions without revenue. transactionId must be unique: a repeated id is rejected, not deduplicated. A new payment also records a payment goal completion (free_trial when amount is 0); isRenewal skips that. isRefund with an existing transactionId overwrites that payment's recorded refund amount and any supplied customer attribution instead of adding a row. Attribution looks up a known visitor by visitorUid, customerId, or email; with no match the revenue is kept but its source shows as Unknown. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         amount: z
@@ -986,7 +1002,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       outputSchema: resultSchema(
         "Object with status and data: a confirmation message once the payment is stored.",
       ),
-      annotations: additiveWriteAnnotations,
+      annotations: destructiveAnnotations,
     },
     async (params) => {
       try {
@@ -1003,7 +1019,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Delete Payments",
       description:
-        "Permanently delete payment records matching every filter given (filters combine with AND): one transactionId, all payments of a visitorId, and/or a createdAt window. At least one of transactionId, visitorId, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone and removes revenue from every report and visitor profile, so restate website, filters, and range and get explicit confirmation first. To reverse a charge while keeping history, use track_payment with isRefund instead. Requires websiteId or domain with a workspace token.",
+        "Permanently delete analytics payment records, without issuing refunds or changing a payment provider. Delete records matching every filter given (filters combine with AND): one transactionId, all payments of a visitorId, and/or a createdAt window. At least one of transactionId, visitorId, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone and removes revenue from every report and visitor profile, so restate website, filters, and range and get explicit confirmation first. To record a refund that already occurred, use track_payment with isRefund; it only updates analytics. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         transactionId: z
