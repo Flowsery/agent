@@ -3,7 +3,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { z } from "zod";
+import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { z, type ZodRawShape, type ZodTypeAny } from "zod";
 import { createServer, type IncomingMessage } from "node:http";
 
 import { RestClient } from "./rest-client.js";
@@ -193,6 +194,18 @@ const queryFields = {
   ...filterFields,
 };
 
+const workspaceIdField = {
+  workspaceId: z
+    .string()
+    .optional()
+    .describe(
+      "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another",
+    ),
+};
+
+const SERVER_INSTRUCTIONS =
+  "A sign-in can reach several workspaces, each with its own data and role. Call list_workspaces when the user names a workspace, client or organization, or when data they expect is missing, then pass that id as workspaceId on every call about it. Without workspaceId, tools act in the default workspace. A 403 with code workspace_access_denied means the workspaceId is not one this sign-in can reach; pick an id from list_workspaces.";
+
 const resultSchema = (description: string) => ({
   result: z.unknown().describe(description),
 });
@@ -253,13 +266,66 @@ const cleanParams = (
 };
 
 const createMcpServer = (apiClient?: RestClient): McpServer => {
-  const client = apiClient ?? api;
-  const server = new McpServer({
-    name: "flowsery",
-    version: "1.0.0",
-  });
+  const baseClient = apiClient ?? api;
+  const server = new McpServer(
+    {
+      name: "flowsery",
+      version: "1.0.0",
+    },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
+
+  const tool = <Args extends ZodRawShape>(
+    name: string,
+    config: {
+      title: string;
+      description: string;
+      inputSchema: Args;
+      outputSchema: ZodRawShape;
+      annotations: ToolAnnotations;
+    },
+    handler: (
+      args: z.objectOutputType<Args, ZodTypeAny>,
+      client: RestClient,
+    ) => Promise<CallToolResult>,
+  ) => {
+    const inputSchema: ZodRawShape = { ...config.inputSchema, ...workspaceIdField };
+    return server.registerTool(name, { ...config, inputSchema }, async (args) => {
+      const { workspaceId, ...rest } = args as { workspaceId?: string };
+      return handler(
+        rest as z.objectOutputType<Args, ZodTypeAny>,
+        baseClient.forWorkspace(workspaceId),
+      );
+    });
+  };
 
   server.registerTool(
+    "list_workspaces",
+    {
+      title: "List Workspaces",
+      description:
+        "List the workspaces this sign-in can act in, across every organization the user belongs to. Returns { status, data } with one entry per workspace: id, name, organization { id, name }, role { key, name }, permissions, isDefault and current. Call this when the user names a workspace, client or organization, or when data they expect is missing, then pass the matching id as workspaceId to every other tool. Without workspaceId, tools act in the workspace marked current. An API key belongs to one workspace, so it lists only that one. Takes no arguments.",
+      inputSchema: {},
+      outputSchema: resultSchema(
+        "One entry per workspace with id, name, organization, role, permissions, isDefault and current. Pass id as workspaceId to other tools.",
+      ),
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
+    },
+    async () => {
+      try {
+        const data = await baseClient.get("/workspaces");
+        return toolResult(data);
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  tool(
     "list_websites",
     {
       title: "List Websites",
@@ -271,7 +337,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async () => {
+    async (_args, client) => {
       try {
         const data = await client.get("/websites");
         return toolResult(data);
@@ -281,7 +347,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_metadata",
     {
       title: "Get Website Settings",
@@ -293,7 +359,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/metadata", cleanParams(params));
         return toolResult(data);
@@ -303,7 +369,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_overview",
     {
       title: "Get Traffic Overview",
@@ -323,7 +389,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/overview", cleanParams(params));
         return toolResult(data);
@@ -333,7 +399,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_timeseries",
     {
       title: "Get Analytics Time Series",
@@ -356,7 +422,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/timeseries", cleanParams(params));
         return toolResult(data);
@@ -366,7 +432,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_realtime",
     {
       title: "Get Active Visitor Count",
@@ -378,7 +444,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/realtime", cleanParams(params));
         return toolResult(data);
@@ -388,7 +454,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_realtime_map",
     {
       title: "Get Live Visitor Map",
@@ -400,7 +466,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get<RealtimeMapResponse>(
           "/realtime/map",
@@ -416,7 +482,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_pages",
     {
       title: "Get Top Pages",
@@ -428,7 +494,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/pages", cleanParams(params));
         return toolResult(data);
@@ -438,7 +504,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_referrers",
     {
       title: "Get Top Referrers",
@@ -450,7 +516,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/referrers", cleanParams(params));
         return toolResult(data);
@@ -460,7 +526,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_countries",
     {
       title: "Get Visitors by Country",
@@ -471,7 +537,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/countries", cleanParams(params));
         return toolResult(data);
@@ -481,7 +547,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_regions",
     {
       title: "Get Visitors by Region",
@@ -492,7 +558,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/regions", cleanParams(params));
         return toolResult(data);
@@ -502,7 +568,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_cities",
     {
       title: "Get Visitors by City",
@@ -513,7 +579,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/cities", cleanParams(params));
         return toolResult(data);
@@ -523,7 +589,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_devices",
     {
       title: "Get Visitors by Device",
@@ -535,7 +601,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/devices", cleanParams(params));
         return toolResult(data);
@@ -545,7 +611,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_browsers",
     {
       title: "Get Visitors by Browser",
@@ -557,7 +623,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/browsers", cleanParams(params));
         return toolResult(data);
@@ -567,7 +633,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_operating_systems",
     {
       title: "Get Visitors by Operating System",
@@ -579,7 +645,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get(
           "/operating-systems",
@@ -592,7 +658,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_campaigns",
     {
       title: "Get Campaign Performance",
@@ -604,7 +670,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/campaigns", cleanParams(params));
         return toolResult(data);
@@ -614,7 +680,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_hostnames",
     {
       title: "Get Traffic by Hostname",
@@ -625,7 +691,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/hostnames", cleanParams(params));
         return toolResult(data);
@@ -635,7 +701,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_channels",
     {
       title: "Get Traffic by Channel",
@@ -647,7 +713,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/channels", cleanParams(params));
         return toolResult(data);
@@ -657,7 +723,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_goals",
     {
       title: "Get Goal Completions",
@@ -669,7 +735,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/goals", cleanParams(params));
         return toolResult(data);
@@ -679,7 +745,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_breakdown",
     {
       title: "Get Breakdown by Dimension",
@@ -696,7 +762,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async ({ dimension, ...params }) => {
+    async ({ dimension, ...params }, client) => {
       try {
         const data = await client.get(
           "/breakdown",
@@ -709,7 +775,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_visitor",
     {
       title: "Get Visitor Profile",
@@ -728,7 +794,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async ({ visitorId, ...params }) => {
+    async ({ visitorId, ...params }, client) => {
       try {
         const data = await client.get(
           `/visitors/${visitorId}`,
@@ -741,7 +807,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "list_issues",
     {
       title: "List Detected Issues",
@@ -781,7 +847,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.get("/issues", cleanParams(params));
         return toolResult(data);
@@ -791,7 +857,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "get_issue",
     {
       title: "Get Issue Detail",
@@ -806,7 +872,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: readOnlyAnnotations,
     },
-    async ({ issueId, ...params }) => {
+    async ({ issueId, ...params }, client) => {
       try {
         const data = await client.get(
           `/issues/${issueId}`,
@@ -819,7 +885,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "update_issue_status",
     {
       title: "Update Issue Status",
@@ -839,7 +905,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: additiveWriteAnnotations,
     },
-    async ({ issueId, status, ...params }) => {
+    async ({ issueId, status, ...params }, client) => {
       try {
         const data = await client.patch(
           `/issues/${issueId}`,
@@ -853,7 +919,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "track_goal",
     {
       title: "Track Goal Event",
@@ -884,7 +950,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: additiveWriteAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.post("/goals", params);
         return toolResult(data);
@@ -894,7 +960,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "delete_goals",
     {
       title: "Delete Goal Events",
@@ -930,7 +996,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: destructiveAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const cleaned = cleanParams(params);
         const hasDeleteFilter = ["visitorId", "name", "startAt", "endAt"].some(
@@ -949,7 +1015,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "track_payment",
     {
       title: "Track Payment",
@@ -1004,7 +1070,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: destructiveAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const data = await client.post("/payments", params);
         return toolResult(data);
@@ -1014,7 +1080,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     },
   );
 
-  server.registerTool(
+  tool(
     "delete_payments",
     {
       title: "Delete Payments",
@@ -1050,7 +1116,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       ),
       annotations: destructiveAnnotations,
     },
-    async (params) => {
+    async (params, client) => {
       try {
         const cleaned = cleanParams(params);
         const hasDeleteFilter = [

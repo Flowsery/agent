@@ -13,7 +13,7 @@
       "name": "flowsery",
       "source": "./",
       "description": "Query web analytics — real-time visitors, traffic breakdowns by 20+ dimensions, revenue attribution, goal tracking, and visitor profiles via Flowsery Analytics API",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "Flowsery"
       },

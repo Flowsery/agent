@@ -99,6 +99,7 @@ docker run -i -e FLOWSERY_API_KEY=flow_sk_live_your_key flowsery-mcp
 - [Flowsery](https://flowsery.com)
 - [API Documentation](https://flowsery.com/docs/api-introduction)
 - [API Tokens](https://flowsery.com/api-tokens)
+- Privacy policy: [flowsery.com/privacy](https://flowsery.com/privacy)
 
 ## License
 
