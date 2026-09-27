@@ -2,7 +2,7 @@
 
 [![smithery badge](https://smithery.ai/badge/tarasshyn/flowsery)](https://smithery.ai/servers/tarasshyn/flowsery)
 
-Give your AI agent the ability to query web analytics — real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles.
+Give your AI agent the ability to query web analytics: real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles.
 
 **Privacy-first, cookie-free analytics.** Alternative to Google Analytics.
 
@@ -24,24 +24,25 @@ Works with Claude Code, Cursor, Windsurf, Codex, and any agent that supports ski
 
 1. Create an account at [flowsery.com](https://flowsery.com)
 2. Add your website and install the tracking snippet
-3. Create an API key at [Site Settings > API](https://flowsery.com/api-tokens)
+3. Create a workspace API token on the [API Tokens page](https://flowsery.com/api-tokens)
 4. Run:
    ```bash
-   ./scripts/flowsery.js setup --key flow_sk_live_xxxxx
+   ./scripts/flowsery.js setup --key flow_ws_xxxxx
    ```
 
 ## What it does
 
 Once installed, your AI agent can:
 
-- **Overview** — aggregated site metrics (visitors, sessions, bounce rate, revenue)
-- **Time series** — trend data by hour, day, week, or month
-- **Realtime** — current active visitor count and geographic map
-- **Breakdowns** — top pages, referrers, countries, devices, browsers, OS, campaigns, channels, and 20+ dimensions
-- **Visitor profiles** — full journey with identity, activity timeline, revenue, and identified user info
-- **Goal tracking** — track custom events with metadata
-- **Revenue tracking** — record payments for attribution (Stripe/LemonSqueezy/Polar auto-tracked)
-- **Filters** — drill down by country, device, browser, UTM params, page, channel, and more
+- **Overview**: aggregated site metrics (visitors, sessions, bounce rate, revenue)
+- **Time series**: trend data by hour, day, week, or month
+- **Realtime**: current active visitor count and geographic map
+- **Breakdowns**: top pages, referrers, countries, devices, browsers, OS, campaigns, channels, and 25 dimensions in all
+- **Visitor profiles**: full journey with identity, activity timeline, revenue, and identified user info
+- **Goal tracking**: track custom events with metadata
+- **Revenue tracking**: record payments for attribution (Stripe/LemonSqueezy/Polar auto-tracked)
+- **Filters**: drill down by country, device, browser, UTM params, page, channel, and more
+- **AI-detected issues**: list, read and update the status of issues found in session recordings (MCP server and REST API)
 
 ## Example
 
@@ -63,7 +64,7 @@ For deeper integration with Claude Desktop, Cursor, or other MCP-compatible clie
       "type": "http",
       "url": "https://mcp.flowsery.com/mcp",
       "headers": {
-        "Authorization": "Bearer flow_sk_live_your_key"
+        "Authorization": "Bearer flow_ws_your_key"
       }
     }
   }
@@ -80,7 +81,7 @@ The server source lives in [`mcp-server/`](./mcp-server). Run it over stdio with
     "flowsery": {
       "command": "bun",
       "args": ["run", "/path/to/agent/mcp-server/src/index.ts"],
-      "env": { "FLOWSERY_API_KEY": "flow_sk_live_your_key" }
+      "env": { "FLOWSERY_API_KEY": "flow_ws_your_key" }
     }
   }
 }
@@ -90,7 +91,7 @@ Or with Docker:
 
 ```bash
 docker build -t flowsery-mcp .
-docker run -i -e FLOWSERY_API_KEY=flow_sk_live_your_key flowsery-mcp
+docker run -i -e FLOWSERY_API_KEY=flow_ws_your_key flowsery-mcp
 ```
 
 ## Links

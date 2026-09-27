@@ -1,7 +1,7 @@
 {
   "name": "flowsery",
   "description": "Query web analytics — real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles via Flowsery Analytics API",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "Flowsery",
     "url": "https://flowsery.com"

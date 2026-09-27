@@ -18,7 +18,9 @@ configured by hand, and no API token is stored in this extension.
 
 ## Notes
 
-- Every tool acts on the workspace the signed-in account belongs to.
+- A sign-in can reach several workspaces. Tools act in the default workspace unless
+  you pass `workspaceId`; call `list_workspaces` when the user names a workspace,
+  client or organization, or when data they expect is missing.
 - Ask before anything that writes. Deletes cannot be undone.
 - Read the tool descriptions for the filters each one accepts rather than guessing
   parameter names.

@@ -63,6 +63,7 @@ const BreakdownDimension = z.enum([
   "utm_content",
   "ref",
   "source",
+  "via",
   "all_params",
 ]);
 
@@ -127,7 +128,7 @@ const filterFields = {
   filter_region: z
     .string()
     .optional()
-    .describe("Filter by region code as returned by get_regions (e.g. US-CA)"),
+    .describe('Filter by region name as returned by get_regions (e.g. "California")'),
   filter_city: z
     .string()
     .optional()
@@ -135,7 +136,9 @@ const filterFields = {
   filter_device: z
     .string()
     .optional()
-    .describe("Filter by device type: desktop, mobile, tablet"),
+    .describe(
+      'Filter by device type as returned by get_devices: "Desktop", "Mobile" or "Tablet". Matching is case-sensitive.',
+    ),
   filter_browser: z
     .string()
     .optional()
@@ -149,7 +152,9 @@ const filterFields = {
   filter_referrer: z
     .string()
     .optional()
-    .describe('Filter by referrer domain as returned by get_referrers (e.g. "google.com")'),
+    .describe(
+      'Filter by referrer as returned by get_referrers: a source name such as "Google" for recognized sites, otherwise the domain',
+    ),
   filter_ref: z.string().optional().describe("Filter by ref URL parameter"),
   filter_source: z
     .string()
@@ -204,7 +209,7 @@ const workspaceIdField = {
 };
 
 const SERVER_INSTRUCTIONS =
-  "A sign-in can reach several workspaces, each with its own data and role. Call list_workspaces when the user names a workspace, client or organization, or when data they expect is missing, then pass that id as workspaceId on every call about it. Without workspaceId, tools act in the default workspace. A 403 with code workspace_access_denied means the workspaceId is not one this sign-in can reach; pick an id from list_workspaces.";
+  "A sign-in can reach several workspaces, each with its own data and role. Call list_workspaces when the user names a workspace, client or organization, or when data they expect is missing, then pass that id as workspaceId on every call about it. Without workspaceId, tools act in the default workspace. A 403 with code workspace_access_denied means the workspaceId is not one this sign-in can reach; pick an id from list_workspaces. A 403 with code permission_denied means this member's role lacks flowsery.write, which Admin and Editor hold: stop, do not retry, and tell the user a workspace admin has to change their role. A 403 with code subscription_required means the plan does not include API access or has lapsed; every tool fails until it is renewed. A 401 with code token_issuer_lost_access means the key is dead because its creator lost access; ask for a new key. A 401 with code oauth_account_not_found means the sign-in email has no Flowsery account; relay the message and ask the user to reconnect with the right email. A 429 means the rate limit was hit; wait for Retry-After and do not loop.";
 
 const resultSchema = (description: string) => ({
   result: z.unknown().describe(description),
@@ -304,7 +309,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "List Workspaces",
       description:
-        "List the workspaces this sign-in can act in, across every organization the user belongs to. Returns { status, data } with one entry per workspace: id, name, organization { id, name }, role { key, name }, permissions, isDefault and current. Call this when the user names a workspace, client or organization, or when data they expect is missing, then pass the matching id as workspaceId to every other tool. Without workspaceId, tools act in the workspace marked current. An API key belongs to one workspace, so it lists only that one. Takes no arguments.",
+        "List the workspaces this sign-in can act in, across every organization the user belongs to. Returns { status, data } with one entry per workspace: id, name, organization { id, name }, role { key, name }, permissions, isDefault and current. Call this when the user names a workspace, client or organization, or when data they expect is missing, then pass the matching id as workspaceId to every other tool. Without workspaceId, tools act in the workspace marked current. A workspace API token (flow_ws_) belongs to one workspace, so it lists only that one; a website key (flow_) belongs to one website and fails with a 400 here. Takes no arguments.",
       inputSchema: {},
       outputSchema: resultSchema(
         "One entry per workspace with id, name, organization, role, permissions, isDefault and current. Pass id as workspaceId to other tools.",
@@ -375,17 +380,9 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       title: "Get Traffic Overview",
       description:
         "Get headline totals for one website over a date range as a single row: visitors, sessions, bounce rate, average session duration, revenue, revenue per visitor, and conversion rate. Dates default to the last 30 days ending now; timezone defaults to the site setting. Every filter_* argument narrows the whole result, so filter_country plus filter_device answers 'mobile visitors from Germany' in one call. Use get_timeseries for the trend over time and a get_* breakdown tool for the split by page, source, or geography. Requires websiteId or domain with a workspace token.",
-      inputSchema: {
-        ...queryFields,
-        fields: z
-          .string()
-          .optional()
-          .describe(
-            "Comma-separated metrics to include: visitors, sessions, bounce_rate, avg_session_duration, currency, revenue, revenue_per_visitor, conversion_rate. Omit for all.",
-          ),
-      },
+      inputSchema: queryFields,
       outputSchema: resultSchema(
-        "Object with status and data: a single row with visitors, sessions, bounce_rate, avg_session_duration, currency, revenue, revenue_per_visitor, and conversion_rate (a percentage) for the window.",
+        "Object with status and data: a single row with visitors, sessions, bounceRate (percentage), avgSessionDuration and avgEngagedTime (seconds), revenue, renewalRevenue, refundedRevenue, revenuePerVisitor, conversionRate (percentage), kpiValue, kpiPerVisitor, kpiConversionRate, and currency for the window.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -404,21 +401,15 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Analytics Time Series",
       description:
-        "Get the same metrics as get_overview bucketed by hour, day, week, or month, plus totals across the whole window. Returns one point per bucket with a timestamp, the requested fields, and revenue split into new, renewal, and refund. Use this for trends and charts; use get_overview for one total and a get_* breakdown tool for a split by dimension rather than time. Dates default to the last 30 days and interval to day. Match interval to range: hourly buckets across a year return thousands of points. Requires websiteId or domain with a workspace token.",
+        "Get the same metrics as get_overview bucketed by hour, day, week, or month, plus totals across the whole window. Returns one point per bucket with timestamp, name, visitors, sessions, revenue split into newRevenue, renewalRevenue and refundedRevenue, conversionRate, and kpiValue. Use this for trends and charts; use get_overview for one total and a get_* breakdown tool for a split by dimension rather than time. Dates default to the last 30 days and interval to day. Match interval to range: hourly buckets across a year return thousands of points. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...queryFields,
         interval: TimeInterval.optional().describe(
           "Bucket size: hour, day, week, or month (default: day). Pick hour only for ranges of a few days.",
         ),
-        fields: z
-          .string()
-          .optional()
-          .describe(
-            "Comma-separated metrics: visitors, sessions, revenue, conversion_rate, name",
-          ),
       },
       outputSchema: resultSchema(
-        "Object with interval, timezone, currency, data (one point per bucket with timestamp, name, the requested metrics, and revenueBreakdown of new, renewal, refund), totals across the window, and pagination.",
+        "Object with interval, timezone, currency, data (one point per bucket with timestamp, name, visitors, sessions, revenue, newRevenue, renewalRevenue, refundedRevenue, conversionRate, kpiValue), totals {visitors, sessions, revenue} across the window, and pagination.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -509,10 +500,10 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Top Referrers",
       description:
-        "Get referring domains ranked by visitors, descending: which external sites sent traffic in the date range. Use get_channels when you want traffic grouped into GA4-style channels (Direct, Organic Search, Paid Social) instead of individual domains, and get_campaigns or get_breakdown with dimension utm_source for traffic identified by UTM tags rather than referrer. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+        "Get referrers ranked by visitors, descending: which external sites sent traffic in the date range. Recognized sites appear under a source name (Google, ChatGPT, Reddit), others under their domain. Use get_channels when you want traffic grouped into GA4-style channels (Direct, Organic Search, Paid Social) instead of individual domains, and get_campaigns or get_breakdown with dimension utm_source for traffic identified by UTM tags rather than referrer. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
       inputSchema: queryFields,
       outputSchema: resultSchema(
-        "Object with status, data (referrer domain rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}.",
+        "Object with status, data (referrer rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -551,7 +542,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     "get_regions",
     {
       title: "Get Visitors by Region",
-      description: "Get visitors grouped by region or state (ISO 3166-2 code such as US-CA), ranked by visitors descending, for a date range. Sits between get_countries (coarser) and get_cities (finer); combine with filter_country to list the regions of one country. Pass filter_region to other tools to scope them to one region. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      description: "Get visitors grouped by region or state name (such as California or Bavaria), ranked by visitors descending, for a date range. Sits between get_countries (coarser) and get_cities (finer); combine with filter_country to list the regions of one country. Pass filter_region to other tools to scope them to one region. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
       inputSchema: queryFields,
       outputSchema: resultSchema(
         "Object with status, data (region rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}.",
@@ -594,10 +585,10 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Visitors by Device",
       description:
-        "Get visitors split by device type (desktop, mobile, tablet), ranked by visitors descending, for a date range. Use this for the mobile-versus-desktop question; use get_browsers or get_operating_systems for the software split. Pass filter_device to any other tool to restrict it to one device type instead. Three rows at most, so pagination rarely matters. Rows carry value, visitors, revenue, and percentage. Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+        "Get visitors split by device type (Desktop, Mobile, Tablet), ranked by visitors descending, for a date range. Use this for the mobile-versus-desktop question; use get_browsers or get_operating_systems for the software split. Pass filter_device to any other tool to restrict it to one device type instead. Three rows at most, so pagination rarely matters. Rows carry value, visitors, revenue, and percentage. Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
       inputSchema: queryFields,
       outputSchema: resultSchema(
-        "Object with status, data (up to three rows, desktop, mobile, tablet, with value, visitors, revenue, percentage), and pagination.",
+        "Object with status, data (up to three rows, Desktop, Mobile, Tablet, with value, visitors, revenue, percentage), and pagination.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -728,7 +719,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Goal Completions",
       description:
-        "Get every configured goal (custom events plus the auto-created payment and free_trial goals) with how many visitors completed it in the date range. Use this to compare conversions across goals; use get_overview for conversion_rate against the site's KPI goal, get_breakdown with dimension goal when you need filters and pagination on the same list, and get_visitor for one person's completions. Dates default to the last 30 days; filter_* narrows the visitors counted and limit/offset page the goal list. Goals are created by track_goal. Requires websiteId or domain with a workspace token.",
+        "Get every configured goal (custom events plus the auto-created payment and free_trial goals) with how many visitors completed it in the date range. Use this to compare conversions across goals; use get_overview for conversion_rate against the site's KPI goal, get_breakdown with dimension goal for the same list with revenue and percentage, and get_visitor for one person's completions. Dates default to the last 30 days; filter_* narrows the visitors counted and limit/offset page the goal list. Goals are created by track_goal. Requires websiteId or domain with a workspace token.",
       inputSchema: queryFields,
       outputSchema: resultSchema(
         "Object with status, data (one entry per configured goal with its name and completion count for the window), and pagination.",
@@ -750,11 +741,11 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Breakdown by Dimension",
       description:
-        "Group visitors by any one of 24 dimensions, ranked by visitors descending, for a date range. Generic form of the named get_* breakdown tools: use it for dimensions without one (entry_page, exit_link, browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, all_params); for page, referrer, country, region, city, device, browser, os, campaign, hostname, channel, or goal the dedicated tool returns the same rows. Combine dimension with filter_* to drill in: dimension page plus filter_utm_campaign shows where one campaign landed. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+        "Group visitors by any one of 25 dimensions, ranked by visitors descending, for a date range. Generic form of the named get_* breakdown tools: use it for dimensions without one (entry_page, exit_link, browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, via, all_params); for page, referrer, country, region, city, device, browser, os, campaign, hostname, channel, or goal the dedicated tool returns the same rows. Combine dimension with filter_* to drill in: dimension page plus filter_utm_campaign shows where one campaign landed. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...queryFields,
         dimension: BreakdownDimension.describe(
-          "Dimension to group by. Without a dedicated tool: entry_page (landing page), exit_link (outbound click), browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, all_params (every tracking parameter at once). With one: device, page, hostname, referrer, channel, campaign (same as utm_campaign), goal, country, region, city, browser, os.",
+          "Dimension to group by. Without a dedicated tool: entry_page (landing page), exit_link (outbound click), browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, via, all_params (every tracking parameter at once). With one: device, page, hostname, referrer, channel, campaign (same as utm_campaign), goal, country, region, city, browser, os.",
         ),
       },
       outputSchema: resultSchema(
@@ -812,7 +803,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "List Detected Issues",
       description:
-        "List issues the AI found while analyzing session recordings: bugs, broken flows, and UX problems, deduplicated across sessions and ranked by severity (or by last seen with sort recency). Each row has title, severity, status, sessions affected, and first/last seen; the response also carries site-wide open, in_progress, and resolved counts plus pagination.total. Start here for 'what is broken', then call get_issue with an id for occurrences, steps to replicate, and comments. Suspended issues are hidden unless status is suspended, so an issue that vanished was probably suspended, not deleted. Limit defaults to 100 (max 1000). Requires websiteId or domain with a workspace token.",
+        "List issues the AI found while analyzing session recordings: bugs, broken flows, and UX problems, deduplicated across sessions and ranked by severity (or by last seen with sort recency). Each row has title, severity, status, sessions affected, and first/last seen; the response also carries site-wide open, in_progress, and resolved counts plus pagination.total. Start here for 'what is broken', then call get_issue with an id for occurrences, steps to replicate, and comments. Suspended issues are hidden unless status is suspended, so an issue that vanished was probably suspended, not deleted. On a free trial only the first 10 issues are listed and counted. Limit defaults to 100 (max 1000). Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         status: z
@@ -843,7 +834,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .describe("Issues to skip for pagination (default 0)"),
       },
       outputSchema: resultSchema(
-        "Object with status, data (issues with id, title, severity, status, sessionsAffected, firstSeenAt, lastSeenAt), counts {open, inProgress, resolved} for the whole site, and pagination {limit, offset, total}.",
+        "Object with status, data (issues with id, title, description, severity, status, sessionsCount, firstSeenAt, lastSeenAt, stepsToReplicate, externalTicketUrl), counts {open, inProgress, resolved} for the whole site, and pagination {limit, offset, total}.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -890,7 +881,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Update Issue Status",
       description:
-        "Set an issue's status to open, in_progress, resolved, or suspended and return the updated issue. Only the status changes; title, severity, occurrences, and comments stay, and any status can be set again later, so this is reversible. Confirm which state the user means before calling: resolved asserts the bug is fixed, suspended hides a known non-problem from the default list_issues result. Not a delete: issues cannot be removed through this server. Get issueId from list_issues; an unknown id fails with 'Issue not found'. Requires websiteId or domain with a workspace token.",
+        "Set an issue's status to open, in_progress, resolved, or suspended and return the updated issue. Only the status changes; title, severity, occurrences, and comments stay, and any status can be set again later, so this is reversible. Confirm which state the user means before calling: resolved asserts the bug is fixed, suspended hides a known non-problem from the default list_issues result. Not a delete: issues cannot be removed through this server. Get issueId from list_issues; an unknown id fails with 'Issue not found', and on a free trial issues beyond the first 10 fail with 'Upgrade to view this issue'. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         issueId: z.string().describe("Issue ID from list_issues"),
@@ -942,7 +933,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .record(z.string())
           .optional()
           .describe(
-            "Up to 10 custom key-value pairs. Keys: lowercase, max 64 chars. Values: max 255 chars.",
+            "Up to 10 string key-value pairs stored with the completion. More than 10 fails with a 400.",
           ),
       },
       outputSchema: resultSchema(
@@ -1063,6 +1054,12 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .optional()
           .describe(
             "True to record a refund. With an existing transactionId, marks that payment refunded by amount instead of creating a new record.",
+          ),
+        timestamp: z
+          .string()
+          .optional()
+          .describe(
+            'ISO 8601 time the payment happened (e.g. "2026-01-15T10:30:00Z"), for backfilling. Defaults to now.',
           ),
       },
       outputSchema: resultSchema(

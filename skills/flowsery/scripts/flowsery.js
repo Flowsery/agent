@@ -7,6 +7,9 @@ const API_BASE = "https://analytics.flowsery.com/analytics";
 const CONFIG_DIR = path.join(os.homedir(), ".config", "flowsery");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const LOCAL_CONFIG = path.join(process.cwd(), ".flowsery", "config.json");
+const ISSUE_STATUSES = ["open", "in_progress", "resolved", "suspended"];
+
+let workspaceId = null;
 
 const getApiKey = () => {
   if (process.env.FLOWSERY_API_KEY) return process.env.FLOWSERY_API_KEY;
@@ -44,6 +47,7 @@ const request = async (method, endpoint, body = null) => {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
+  if (workspaceId) headers["X-Workspace-Id"] = workspaceId;
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
 
@@ -103,7 +107,6 @@ const buildQueryString = (parsed) => {
   if (parsed.timezone) params.set("timezone", parsed.timezone);
   if (parsed.limit) params.set("limit", parsed.limit);
   if (parsed.offset) params.set("offset", parsed.offset);
-  if (parsed.fields) params.set("fields", parsed.fields);
 
   const filterKeys = [
     "filter_country",
@@ -151,6 +154,23 @@ const addWebsiteSelectorToParams = (parsed, params) => {
   if (parsed.domain) params.set("domain", parsed.domain);
 };
 
+const buildIssueListQueryString = (parsed) => {
+  const params = new URLSearchParams();
+  addWebsiteSelectorToParams(parsed, params);
+  for (const key of ["status", "severity", "search", "sort", "limit", "offset"]) {
+    if (parsed[key] && parsed[key] !== true) params.set(key, parsed[key]);
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+};
+
+const buildWebsiteSelectorQueryString = (parsed) => {
+  const params = new URLSearchParams();
+  addWebsiteSelectorToParams(parsed, params);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+};
+
 const COMMANDS = {
   setup: async (args) => {
     const parsed = parseArgs(args);
@@ -168,6 +188,11 @@ const COMMANDS = {
 
   websites: async () => {
     const data = await request("GET", "/api/v1/websites");
+    output(data);
+  },
+
+  workspaces: async () => {
+    const data = await request("GET", "/api/v1/workspaces");
     output(data);
   },
 
@@ -304,7 +329,7 @@ const COMMANDS = {
         "Usage: ./scripts/flowsery.js breakdown --dimension <dim> [--startAt ...] [--limit ...]",
       );
       error(
-        "Dimensions: device, page, entry_page, exit_link, hostname, referrer, channel, campaign, goal, country, region, city, browser, browser_version, os, os_version, utm_source, utm_medium, utm_campaign, utm_term, utm_content, ref, source, all_params",
+        "Dimensions: device, page, entry_page, exit_link, hostname, referrer, channel, campaign, goal, country, region, city, browser, browser_version, os, os_version, utm_source, utm_medium, utm_campaign, utm_term, utm_content, ref, source, via, all_params",
       );
       process.exit(1);
     }
@@ -316,6 +341,50 @@ const COMMANDS = {
     const data = await request(
       "GET",
       `/api/v1/breakdown${fullQs ? `?${fullQs}` : ""}`,
+    );
+    output(data);
+  },
+
+  issues: async (args) => {
+    const parsed = parseArgs(args);
+    const qs = buildIssueListQueryString(parsed);
+    const data = await request("GET", `/api/v1/issues${qs}`);
+    output(data);
+  },
+
+  "issues:get": async (args) => {
+    const parsed = parseArgs(args);
+    if (!parsed.id || parsed.id === true) {
+      error(
+        "Usage: ./scripts/flowsery.js issues:get --id <issue_id> [--website-id <id> | --domain example.com]",
+      );
+      process.exit(1);
+    }
+    const qs = buildWebsiteSelectorQueryString(parsed);
+    const data = await request(
+      "GET",
+      `/api/v1/issues/${encodeURIComponent(parsed.id)}${qs}`,
+    );
+    output(data);
+  },
+
+  "issues:update": async (args) => {
+    const parsed = parseArgs(args);
+    if (
+      !parsed.id ||
+      parsed.id === true ||
+      !ISSUE_STATUSES.includes(parsed.status)
+    ) {
+      error(
+        `Usage: ./scripts/flowsery.js issues:update --id <issue_id> --status <${ISSUE_STATUSES.join("|")}> [--website-id <id> | --domain example.com]`,
+      );
+      process.exit(1);
+    }
+    const qs = buildWebsiteSelectorQueryString(parsed);
+    const data = await request(
+      "PATCH",
+      `/api/v1/issues/${encodeURIComponent(parsed.id)}${qs}`,
+      { status: parsed.status },
     );
     output(data);
   },
@@ -391,21 +460,26 @@ const COMMANDS = {
 
   "payments:create": async (args) => {
     const parsed = parseArgs(args);
+    const amount = Number(parsed.amount);
     if (
-      !parsed.amount ||
-      !parsed.currency ||
+      parsed.amount === undefined ||
+      parsed.amount === true ||
+      !Number.isFinite(amount) ||
       !(parsed["transaction-id"] || parsed.transactionId)
     ) {
       error(
-        "Usage: ./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123 [--visitor-uid <uid>]",
+        "Usage: ./scripts/flowsery.js payments:create --amount 29.99 --transaction-id pay_123 [--currency USD] [--timestamp 2026-01-15T10:00:00Z] [--visitor-uid <uid>]",
       );
       process.exit(1);
     }
     const body = {
-      amount: parseFloat(parsed.amount),
-      currency: parsed.currency,
+      amount,
       transactionId: parsed["transaction-id"] || parsed.transactionId,
     };
+    if (parsed.currency && parsed.currency !== true)
+      body.currency = parsed.currency;
+    if (parsed.timestamp && parsed.timestamp !== true)
+      body.timestamp = parsed.timestamp;
     addWebsiteSelectorToBody(parsed, body);
     if (parsed["visitor-uid"] || parsed.visitorUid)
       body.visitorUid = parsed["visitor-uid"] || parsed.visitorUid;
@@ -466,6 +540,10 @@ const COMMANDS = {
           "flow_ws_ tokens can list/access every website in the workspace",
         website: "flow_ keys access one website only",
       },
+      global_flags: {
+        "--workspace <id>":
+          "Sends X-Workspace-Id to pick the workspace for an OAuth sign-in that reaches several. List them with `workspaces`",
+      },
     });
   },
 };
@@ -473,6 +551,12 @@ const COMMANDS = {
 const main = async () => {
   const command = process.argv[2] || "help";
   const args = process.argv.slice(3);
+  const { workspace } = parseArgs(args);
+  if (workspace === true) {
+    error("--workspace needs a workspace id. Run: ./scripts/flowsery.js workspaces");
+    process.exit(1);
+  }
+  if (workspace) workspaceId = workspace;
 
   if (!COMMANDS[command]) {
     error(`Unknown command: ${command}`);

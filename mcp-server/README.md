@@ -37,7 +37,7 @@ Start with `list_websites` either way.
 
 ## Workspaces
 
-An OAuth sign-in reaches every workspace the user belongs to, each with its own websites. `list_workspaces` returns them, and every other tool takes an optional `workspaceId` that the server sends as the `X-Workspace-Id` header. Without it a tool works in the default workspace. A `workspaceId` the sign-in cannot reach returns 403 with `code: workspace_access_denied`. A workspace token belongs to one workspace, so `list_workspaces` shows only that one.
+An OAuth sign-in reaches every workspace the user belongs to, each with its own websites. `list_workspaces` returns them, and every other tool takes an optional `workspaceId` that the server sends as the `X-Workspace-Id` header. Without it a tool works in the default workspace. A `workspaceId` the sign-in cannot reach returns 403 with `code: workspace_access_denied`. A workspace token belongs to one workspace, so `list_workspaces` shows only that one; a website key (`flow_`) answers 400 there.
 
 ## Local setup
 
