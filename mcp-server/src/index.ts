@@ -8,6 +8,7 @@ import { z, type ZodRawShape, type ZodTypeAny } from "zod";
 import { createServer, type IncomingMessage } from "node:http";
 
 import { RestClient } from "./rest-client.js";
+import { withoutSchemaDialect } from "./schema-dialect.js";
 import {
   oauthConfigFromEnv,
   handleProtectedResourceMetadata,
@@ -1234,7 +1235,7 @@ const main = async (): Promise<void> => {
           enableJsonResponse: !wantsSse,
         });
         const reqServer = createMcpServer(reqApi);
-        await reqServer.connect(transport);
+        await reqServer.connect(withoutSchemaDialect(transport));
         try {
           await transport.handleRequest(req, res);
         } catch (err) {
@@ -1260,7 +1261,7 @@ const main = async (): Promise<void> => {
   } else {
     const server = createMcpServer();
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await server.connect(withoutSchemaDialect(transport));
   }
 };
 
