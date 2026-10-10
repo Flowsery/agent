@@ -239,10 +239,24 @@ type RealtimeMapResponse = { data?: RealtimeMapVisitor[] } & Record<string, unkn
 
 const PERSONAL_MAP_FIELDS = ["name", "email", "userId", "totalRevenue", "isCustomer"];
 
-const withoutPersonalFields = (visitor: RealtimeMapVisitor) =>
-  Object.fromEntries(
+const MAP_COORDINATE_DECIMALS = 1;
+
+const roundCoordinate = (value: unknown) =>
+  typeof value === "number" ? Number(value.toFixed(MAP_COORDINATE_DECIMALS)) : value;
+
+const toMapVisitor = (visitor: RealtimeMapVisitor) => {
+  const kept = Object.fromEntries(
     Object.entries(visitor).filter(([key]) => !PERSONAL_MAP_FIELDS.includes(key)),
   );
+  return {
+    ...kept,
+    latitude: roundCoordinate(kept.latitude),
+    longitude: roundCoordinate(kept.longitude),
+  };
+};
+
+const LOCKED_ISSUE_ERROR = "Upgrade to view this issue";
+const LOCKED_ISSUE_MESSAGE = "This issue is not included in the current Flowsery plan";
 
 const toolResult = (data: unknown) => {
   return {
@@ -252,7 +266,8 @@ const toolResult = (data: unknown) => {
 };
 
 const toolError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = raw.replace(LOCKED_ISSUE_ERROR, LOCKED_ISSUE_MESSAGE);
   return {
     content: [{ type: "text" as const, text: `Error: ${message}` }],
     isError: true,
@@ -451,10 +466,10 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Live Visitor Map",
       description:
-        "Get the visitors active on the site in the last 5 minutes with their geographic location, for a live map view. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
+        "Get the visitors active on the site in the last 5 minutes with their approximate location, for a live map view. Locations come from the IP address at city level, with coordinates rounded to 0.1 degrees. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
       inputSchema: websiteSelectorFields,
       outputSchema: resultSchema(
-        "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude, longitude, browser, os, deviceType, currentUrl, referrer, and pageviews. Names, emails and per-visitor revenue are left out; use get_visitor for one specific visitor.",
+        "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude and longitude rounded to 0.1 degrees, browser, os, deviceType, currentUrl, referrer, and pageviews. Names, emails and per-visitor revenue are left out; use get_visitor for one specific visitor.",
       ),
       annotations: readOnlyAnnotations,
     },
@@ -466,7 +481,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
         );
         return toolResult({
           ...data,
-          data: (data.data ?? []).map(withoutPersonalFields),
+          data: (data.data ?? []).map(toMapVisitor),
         });
       } catch (error) {
         return toolError(error);
@@ -854,7 +869,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Issue Detail",
       description:
-        "Get full detail for one AI-detected issue: every occurrence with timestamps, the sessions behind it, steps to replicate, comments, and any linked Linear or Jira ticket. Get issueId from list_issues; use this only when you need the evidence behind one issue. An unknown id, or one from another website, fails with 'Issue not found'; on a free trial, issues beyond the first 10 fail with 'Upgrade to view this issue'. Session detail names pages, referrers, and geography, so surface only what answers the question. Requires websiteId or domain with a workspace token.",
+        "Get full detail for one AI-detected issue: every occurrence with timestamps, the sessions behind it, steps to replicate, comments, and any linked Linear or Jira ticket. Get issueId from list_issues; use this only when you need the evidence behind one issue. An unknown id, or one from another website, fails with 'Issue not found'; on a free trial only the first 10 issues are available, and later ones fail as not included in the current plan. Each session lists its recording id, the anonymous visitorUid, start URL and page title, timing and event counts; no names, emails or locations are returned, so surface only what answers the question. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         issueId: z.string().describe("Issue ID from list_issues"),
@@ -882,7 +897,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Update Issue Status",
       description:
-        "Set an issue's status to open, in_progress, resolved, or suspended and return the updated issue. Only the status changes; title, severity, occurrences, and comments stay, and any status can be set again later, so this is reversible. Confirm which state the user means before calling: resolved asserts the bug is fixed, suspended hides a known non-problem from the default list_issues result. Not a delete: issues cannot be removed through this server. Get issueId from list_issues; an unknown id fails with 'Issue not found', and on a free trial issues beyond the first 10 fail with 'Upgrade to view this issue'. Requires websiteId or domain with a workspace token.",
+        "Set an issue's status to open, in_progress, resolved, or suspended and return the updated issue. Only the status changes; title, severity, occurrences, and comments stay, and any status can be set again later, so this is reversible. Confirm which state the user means before calling: resolved asserts the bug is fixed, suspended hides a known non-problem from the default list_issues result. Not a delete: issues cannot be removed through this server. Get issueId from list_issues; an unknown id fails with 'Issue not found', and on a free trial issues beyond the first 10 fail as not included in the current plan. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         issueId: z.string().describe("Issue ID from list_issues"),
