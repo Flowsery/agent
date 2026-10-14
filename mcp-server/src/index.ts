@@ -237,6 +237,21 @@ const destructiveAnnotations = {
 type RealtimeMapVisitor = Record<string, unknown>;
 type RealtimeMapResponse = { data?: RealtimeMapVisitor[] } & Record<string, unknown>;
 
+type VisitorProfileResponse = {
+  data?: Record<string, unknown> & { profile?: Record<string, unknown> | null };
+} & Record<string, unknown>;
+
+const withoutVisitorIdentity = (response: VisitorProfileResponse) =>
+  response.data
+    ? {
+        ...response,
+        data: {
+          ...response.data,
+          profile: response.data.profile ? { identified: true } : null,
+        },
+      }
+    : response;
+
 const PERSONAL_MAP_FIELDS = ["name", "email", "userId", "totalRevenue", "isCustomer"];
 
 const MAP_COORDINATE_DECIMALS = 1;
@@ -787,7 +802,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Visitor Profile",
       description:
-        "Get one visitor's full profile: geo, device, and browser identity, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue (total, customer flag, seconds to first conversion), the identified profile (userId, name, email), and a merged timeline of pageviews, goals, and payments, newest first. Contains personal data: call it only when asked about a specific visitor and surface the minimum needed. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
+        "Get one visitor's full profile: geo, device, and browser identity, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue (total, customer flag, seconds to first conversion), whether the visitor is identified (names, emails and user IDs are never returned), and a merged timeline of pageviews, goals, and payment amounts, newest first. Contains personal data: call it only when asked about a specific visitor and surface the minimum needed. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         visitorId: z
@@ -797,17 +812,17 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           ),
       },
       outputSchema: resultSchema(
-        "Object with status and data: visitorId, identity, source, sourceIconUrl, activity, revenue, profile (null when anonymous), and activityTimeline sorted newest first.",
+        "Object with status and data: visitorId, identity, source, sourceIconUrl, activity, revenue, profile ({ identified: true } for identified visitors, null when anonymous; no names, emails or user IDs), and activityTimeline sorted newest first.",
       ),
       annotations: readOnlyAnnotations,
     },
     async ({ visitorId, ...params }, client) => {
       try {
-        const data = await client.get(
+        const data = await client.get<VisitorProfileResponse>(
           `/visitors/${visitorId}`,
           cleanParams(params),
         );
-        return toolResult(data);
+        return toolResult(withoutVisitorIdentity(data));
       } catch (error) {
         return toolError(error);
       }
@@ -910,7 +925,11 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
       outputSchema: resultSchema(
         "Object with status and data: the full issue detail after the change, with the new status.",
       ),
-      annotations: additiveWriteAnnotations,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ issueId, status, ...params }, client) => {
       try {
@@ -931,7 +950,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Track Goal Event",
       description:
-        "Record one completion of a custom goal. The goal is created on first use, so no setup call is needed; names are lowercase letters, digits, underscores, and hyphens, max 64 chars. Pass visitorUid (the _fs_vid cookie value of a visitor the tracking script has already seen) so the completion attaches to that visitor's sessions and source; omit it for an anonymous completion. Each call appends a completion, so repeating it counts the goal twice. Use track_payment for revenue, which records a payment goal on its own. Undo with delete_goals. Requires websiteId or domain with a workspace token.",
+        "Record one completion of a custom goal. The goal is created on first use, so no setup call is needed; names are lowercase letters, digits, underscores, and hyphens, max 64 chars. Pass visitorUid (the _fs_vid cookie value of a visitor the tracking script has already seen) so the completion attaches to that visitor's sessions and source; omit it for an anonymous completion. Each call appends a completion, so repeating it counts the goal twice. Undo with delete_goals. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         name: z
@@ -972,7 +991,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Delete Goal Events",
       description:
-        "Permanently delete recorded goal completions matching every filter given (filters combine with AND). At least one of visitorId, name, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone: restate website, filters, and range and get explicit confirmation first. Deletes completions only; the goal definition stays and get_goals still lists it. Use delete_payments for revenue records and update_issue_status for issues. Requires websiteId or domain with a workspace token.",
+        "Permanently delete recorded goal completions matching every filter given (filters combine with AND). At least one of visitorId, name, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone: restate website, filters, and range and get explicit confirmation first. Deletes completions only; the goal definition stays and get_goals still lists it. Use update_issue_status for issues. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         visitorId: z
@@ -1015,135 +1034,6 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           );
         }
         const data = await client.delete("/goals", cleaned);
-        return toolResult(data);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
-  );
-
-  tool(
-    "track_payment",
-    {
-      title: "Track Payment",
-      description:
-        "Record an analytics payment; this never charges a customer, moves money, or issues a refund. Revenue appears in get_overview, get_timeseries, and the visitor profile. Skip it when the site's provider (Stripe, LemonSqueezy, Polar, and other connected providers) is tracked automatically; use track_goal for conversions without revenue. transactionId must be unique: a repeated id is rejected, not deduplicated. A new payment also records a payment goal completion (free_trial when amount is 0); isRenewal skips that. isRefund with an existing transactionId overwrites that payment's recorded refund amount and any supplied customer attribution instead of adding a row. Attribution looks up a known visitor by visitorUid, customerId, or email; with no match the revenue is kept but its source shows as Unknown. Requires websiteId or domain with a workspace token.",
-      inputSchema: {
-        ...websiteSelectorFields,
-        amount: z
-          .number()
-          .describe(
-            "Payment amount in major currency units (e.g. 29.99). With isRefund, the amount refunded. 0 records a free_trial goal instead of a payment goal.",
-          ),
-        currency: z.string().describe('Currency code (e.g. "USD", "EUR")'),
-        transactionId: z
-          .string()
-          .describe(
-            "Unique transaction ID from your payment provider. Must not repeat across payments; reuse it only with isRefund to mark that payment refunded.",
-          ),
-        visitorUid: z
-          .string()
-          .optional()
-          .describe(
-            "Visitor UID from the _fs_vid cookie. Strongly recommended: without it (or customerId/email matching a known visitor) the payment is attributed to Unknown",
-          ),
-        sessionUid: z
-          .string()
-          .optional()
-          .describe("Session ID for the current visitor session"),
-        email: z.string().optional().describe("Customer email"),
-        name: z.string().optional().describe("Customer name"),
-        customerId: z
-          .string()
-          .optional()
-          .describe(
-            "Customer ID from the payment provider. Also used to find the visitor when visitorUid is absent.",
-          ),
-        isRenewal: z
-          .boolean()
-          .optional()
-          .describe(
-            "True for recurring/renewal charges. Renewals are counted in revenue but do not record the automatic payment goal.",
-          ),
-        isRefund: z
-          .boolean()
-          .optional()
-          .describe(
-            "True to record a refund. With an existing transactionId, marks that payment refunded by amount instead of creating a new record.",
-          ),
-        timestamp: z
-          .string()
-          .optional()
-          .describe(
-            'ISO 8601 time the payment happened (e.g. "2026-01-15T10:30:00Z"), for backfilling. Defaults to now.',
-          ),
-      },
-      outputSchema: resultSchema(
-        "Object with status and data: a confirmation message once the payment is stored.",
-      ),
-      annotations: destructiveAnnotations,
-    },
-    async (params, client) => {
-      try {
-        const data = await client.post("/payments", params);
-        return toolResult(data);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
-  );
-
-  tool(
-    "delete_payments",
-    {
-      title: "Delete Payments",
-      description:
-        "Permanently delete analytics payment records, without issuing refunds or changing a payment provider. Delete records matching every filter given (filters combine with AND): one transactionId, all payments of a visitorId, and/or a createdAt window. At least one of transactionId, visitorId, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone and removes revenue from every report and visitor profile, so restate website, filters, and range and get explicit confirmation first. To record a refund that already occurred, use track_payment with isRefund; it only updates analytics. Requires websiteId or domain with a workspace token.",
-      inputSchema: {
-        ...websiteSelectorFields,
-        transactionId: z
-          .string()
-          .optional()
-          .describe(
-            "Delete the single payment with this transaction ID. Combined with the other filters using AND.",
-          ),
-        visitorId: z
-          .string()
-          .optional()
-          .describe("Delete all payments of this visitor (the id get_visitor takes)"),
-        startAt: z
-          .string()
-          .optional()
-          .describe(
-            'ISO 8601 start of the deletion window, inclusive (e.g. "2026-01-01T00:00:00Z"). May be used without endAt.',
-          ),
-        endAt: z
-          .string()
-          .optional()
-          .describe(
-            'ISO 8601 end of the deletion window, inclusive (e.g. "2026-01-31T23:59:59Z"). May be used without startAt.',
-          ),
-      },
-      outputSchema: resultSchema(
-        "Object with status and data: deleted (number of payment records removed) and a confirmation message.",
-      ),
-      annotations: destructiveAnnotations,
-    },
-    async (params, client) => {
-      try {
-        const cleaned = cleanParams(params);
-        const hasDeleteFilter = [
-          "transactionId",
-          "visitorId",
-          "startAt",
-          "endAt",
-        ].some((key) => cleaned[key] !== undefined);
-        if (!hasDeleteFilter) {
-          throw new Error(
-            "At least one filter required: transactionId, visitorId, startAt, or endAt",
-          );
-        }
-        const data = await client.delete("/payments", cleaned);
         return toolResult(data);
       } catch (error) {
         return toolError(error);

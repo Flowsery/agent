@@ -24,5 +24,3 @@ get_issue
 update_issue_status
 track_goal
 delete_goals
-track_payment
-delete_payments
