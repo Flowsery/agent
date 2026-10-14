@@ -481,7 +481,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Live Visitor Map",
       description:
-        "Get the visitors active on the site in the last 5 minutes with their approximate location, for a live map view. Locations come from the IP address at city level, with coordinates rounded to 0.1 degrees. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
+        "Get the visitors active on the user's own website in the last 5 minutes with their approximate city-level location, for a live map view. Coordinates are rounded to 0.1 degrees, and no IP addresses or other identifying details are returned. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
       inputSchema: websiteSelectorFields,
       outputSchema: resultSchema(
         "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude and longitude rounded to 0.1 degrees, browser, os, deviceType, currentUrl, referrer, and pageviews. Names, emails and per-visitor revenue are left out; use get_visitor for one specific visitor.",
@@ -802,7 +802,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Get Visitor Profile",
       description:
-        "Get one visitor's full profile: geo, device, and browser identity, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue (total, customer flag, seconds to first conversion), whether the visitor is identified (names, emails and user IDs are never returned), and a merged timeline of pageviews, goals, and payment amounts, newest first. Contains personal data: call it only when asked about a specific visitor and surface the minimum needed. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
+        "Get the analytics for one visitor to the user's own website: country and city, device and browser, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue totals, whether the visitor is identified, and a timeline of pageviews, goals, and purchase amounts, newest first. Names, emails, user IDs, IP addresses, and card or billing details are never returned. Call it only when the user asks about a specific visitor, and share only what answers the question. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         visitorId: z
@@ -950,7 +950,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
     {
       title: "Track Goal Event",
       description:
-        "Record one completion of a custom goal. The goal is created on first use, so no setup call is needed; names are lowercase letters, digits, underscores, and hyphens, max 64 chars. Pass visitorUid (the _fs_vid cookie value of a visitor the tracking script has already seen) so the completion attaches to that visitor's sessions and source; omit it for an anonymous completion. Each call appends a completion, so repeating it counts the goal twice. Undo with delete_goals. Requires websiteId or domain with a workspace token.",
+        "Record one completion of a custom goal. The goal is created on first use, so no setup call is needed; names are lowercase letters, digits, underscores, and hyphens, max 64 chars. Pass visitorUid (the anonymous visitor ID Flowsery assigned on the user's own website) so the completion attaches to that visitor's sessions and source; omit it for an anonymous completion. Each call appends a completion, so repeating it counts the goal twice. Undo with delete_goals. Requires websiteId or domain with a workspace token.",
       inputSchema: {
         ...websiteSelectorFields,
         name: z
@@ -962,7 +962,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .string()
           .optional()
           .describe(
-            "Visitor UID from the _fs_vid browser cookie of a visitor the tracking script has seen. Omit to record an anonymous completion.",
+            "Anonymous visitor ID Flowsery assigned on the user's own website (the _fs_vid value). Omit to record an anonymous completion.",
           ),
         metadata: z
           .record(z.string())
