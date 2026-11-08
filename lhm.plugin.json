@@ -1,0 +1,20 @@
+{
+  "identifier": "flowsery",
+  "name": "Flowsery",
+  "version": "1.4.0",
+  "description": "Query Flowsery's privacy-first, cookie-free web analytics: live visitors, traffic breakdowns by 25 dimensions, goals, revenue, visitor journeys, and the bugs Flowsery's AI found in session recordings. Sign in with OAuth or an API key.",
+  "author": "Flowsery",
+  "authorUrl": "https://flowsery.com",
+  "homepage": "https://flowsery.com/features/agents",
+  "cloudEndpoint": "https://mcp.flowsery.com/mcp",
+  "category": "business",
+  "icon": "https://raw.githubusercontent.com/Flowsery/agent/main/assets/icon.svg",
+  "tags": [
+    "analytics",
+    "web-analytics",
+    "privacy",
+    "session-replay",
+    "revenue",
+    "marketing"
+  ]
+}
