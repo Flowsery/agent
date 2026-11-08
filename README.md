@@ -1,8 +1,14 @@
 # Flowsery agent
 
-[![smithery badge](https://smithery.ai/badge/tarasshyn/flowsery)](https://smithery.ai/servers/tarasshyn/flowsery)
-
 Let your AI agent query Flowsery, the privacy-first, cookie-free web analytics: live visitors, traffic breakdowns, goals, revenue, visitor journeys, and the bugs Flowsery's AI found in session recordings.
+
+Install the agent skill in any agent that supports skills (Claude Code, Cursor, Codex, Windsurf):
+
+```bash
+npx skills add Flowsery/agent
+```
+
+Or connect any MCP client to `https://mcp.flowsery.com/mcp` and sign in. More options are in [Pick your install](#pick-your-install).
 
 ## What this repo is
 
