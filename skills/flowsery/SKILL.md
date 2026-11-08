@@ -5,7 +5,7 @@ description: >
   Retrieve real-time visitor counts, time series data, breakdowns by 25 dimensions (device,
   page, country, referrer, campaign, channel, UTM params, exit links, etc.), visitor profiles
   with activity timelines, custom goal tracking, and revenue attribution.
-last-updated: 2026-09-27
+last-updated: 2026-11-08
 allowed-tools: Bash(./scripts/flowsery.js:*)
 ---
 
@@ -24,7 +24,6 @@ Update methods by installation type:
 | Installation       | How to update                                       |
 | ------------------ | --------------------------------------------------- |
 | CLI (`npx skills`) | `npx skills update`                                 |
-| Claude Code plugin | `/plugin marketplace update`                        |
 | Cursor             | Remote rules auto-sync from GitHub                  |
 | Manual             | Pull latest from repo or re-copy `skills/flowsery/` |
 
@@ -245,9 +244,7 @@ Flowsery auto-classifies traffic into GA4-aligned channels:
 
 ## MCP Integration
 
-Flowsery has a native MCP server. If you're using Claude Desktop, Cursor, or any MCP-compatible client, you can connect directly.
-
-**Claude Code / Cursor / Other MCP clients**: add to your MCP config:
+Flowsery has a native MCP server at `https://mcp.flowsery.com/mcp`. OAuth-capable clients connect with just the URL and sign in in the browser; that sign-in reaches every workspace the user belongs to (`list_workspaces`, then `workspaceId` on each tool). Clients without OAuth can send an API key instead:
 
 ```json
 {

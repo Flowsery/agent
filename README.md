@@ -1,50 +1,60 @@
-# Flowsery Agent
+# Flowsery agent
 
 [![smithery badge](https://smithery.ai/badge/tarasshyn/flowsery)](https://smithery.ai/servers/tarasshyn/flowsery)
 
-Give your AI agent the ability to query web analytics: real-time visitors, traffic breakdowns, revenue, goals, and visitor profiles.
+Let your AI agent query Flowsery, the privacy-first, cookie-free web analytics: live visitors, traffic breakdowns, goals, revenue, visitor journeys, and the bugs Flowsery's AI found in session recordings.
 
-**Privacy-first, cookie-free analytics.** Alternative to Google Analytics.
+## What this repo is
 
-## Install
+This repo holds every Flowsery agent integration except the Claude Code and Hermes Agent plugin:
+
+| Path | What it is |
+| --- | --- |
+| [`skills/flowsery/`](./skills/flowsery) | The agent skill for `npx skills add`. It drives the Flowsery REST API through `scripts/flowsery.js` with an API key. |
+| [`mcp-server/`](./mcp-server) | Source of the MCP server that runs at `https://mcp.flowsery.com/mcp`. A push to `main` that touches it builds a new image. |
+| `gemini-extension.json`, `GEMINI.md` | The Gemini CLI extension. It connects to the hosted MCP server and signs in with OAuth. |
+| `Dockerfile`, `glama.json` | Runs the MCP server over stdio, for Glama and anyone who wants it in a container. |
+
+The Claude Code and Hermes Agent plugin lives in [Flowsery/claude-plugin](https://github.com/Flowsery/claude-plugin). It signs in with OAuth and never asks for an API key, which the Claude plugin directory and the Hermes catalog both require, so it ships its own MCP-only skill instead of the script skill here.
+
+## Pick your install
+
+| You use | Install | Sign-in |
+| --- | --- | --- |
+| Claude Code | `/plugin install flowsery --marketplace Flowsery/claude-plugin` | OAuth |
+| Hermes Agent | `hermes plugins install flowsery` | OAuth |
+| Gemini CLI | `gemini extensions install https://github.com/Flowsery/agent` | OAuth |
+| Claude Desktop, Cursor, ChatGPT or any MCP client | Add `https://mcp.flowsery.com/mcp` as a remote server | OAuth, or an API key header |
+| Cursor, Codex, Windsurf, Claude Code or any agent with skills | `npx skills add Flowsery/agent` | API key |
+
+## The skill
 
 ```bash
-npx skills add flowsery/agent
+npx skills add Flowsery/agent
 ```
 
-Works with Claude Code, Cursor, Windsurf, Codex, and any agent that supports skills.
+Or copy `skills/flowsery/` into your project's skills folder. Cursor can also read it as a remote rule from `https://raw.githubusercontent.com/Flowsery/agent/main/skills/flowsery/SKILL.md`.
 
-### Other installation methods
+### Setup
 
-**Manual**: Copy the `skills/flowsery/` folder into your project's skills directory.
-
-**Cursor remote rules**: Point to `https://raw.githubusercontent.com/flowsery/agent/main/skills/flowsery/SKILL.md`
-
-## Setup
-
-1. Create an account at [flowsery.com](https://flowsery.com)
-2. Add your website and install the tracking snippet
-3. Create a workspace API token on the [API Tokens page](https://flowsery.com/api-tokens)
-4. Run:
+1. Create an account at [flowsery.com](https://flowsery.com), add your website and install the tracking snippet.
+2. Create a workspace API token on the [API tokens page](https://flowsery.com/api-tokens).
+3. Run:
    ```bash
    ./scripts/flowsery.js setup --key flow_ws_xxxxx
    ```
 
-## What it does
+### What the agent can do
 
-Once installed, your AI agent can:
-
-- **Overview**: aggregated site metrics (visitors, sessions, bounce rate, revenue)
-- **Time series**: trend data by hour, day, week, or month
-- **Realtime**: current active visitor count and geographic map
-- **Breakdowns**: top pages, referrers, countries, devices, browsers, OS, campaigns, channels, and 25 dimensions in all
-- **Visitor profiles**: full journey with identity, activity timeline, revenue, and identified user info
-- **Goal tracking**: track custom events with metadata
-- **Revenue tracking**: record payments for attribution (Stripe/LemonSqueezy/Polar auto-tracked)
-- **Filters**: drill down by country, device, browser, UTM params, page, channel, and more
-- **AI-detected issues**: list, read and update the status of issues found in session recordings (MCP server and REST API)
-
-## Example
+- Headline totals for any date range: visitors, sessions, bounce rate, revenue and conversion rate
+- Trends by hour, day, week or month
+- Visitors active right now, with a live map
+- Breakdowns by any of 25 dimensions: pages, landing pages, referrers, channels, UTM campaigns, countries, regions, cities, devices, browsers and more
+- Filters on country, device, browser, UTM parameters, page and channel
+- Goals and their completions, and recording custom goal events
+- Recording payments for revenue attribution (Stripe, LemonSqueezy and Polar are tracked automatically)
+- One visitor's full journey with their activity timeline
+- The issues Flowsery's AI found in session recordings, and changing their status
 
 ```
 You: How's my traffic this week?
@@ -53,9 +63,9 @@ Agent: Your site had 2,847 visitors and 3,912 sessions this week.
        Top sources: Google (41%), Direct (28%), Twitter (12%).
 ```
 
-## Alternative: MCP
+## The MCP server
 
-For deeper integration with Claude Desktop, Cursor, or other MCP-compatible clients, use the Flowsery MCP server:
+Flowsery runs this server at `https://mcp.flowsery.com/mcp`. An OAuth-capable client needs only the URL and signs in in the browser; that sign-in reaches every workspace you belong to. A client without OAuth sends an API key:
 
 ```json
 {
@@ -63,17 +73,15 @@ For deeper integration with Claude Desktop, Cursor, or other MCP-compatible clie
     "flowsery": {
       "type": "http",
       "url": "https://mcp.flowsery.com/mcp",
-      "headers": {
-        "Authorization": "Bearer flow_ws_your_key"
-      }
+      "headers": { "Authorization": "Bearer flow_ws_your_key" }
     }
   }
 }
 ```
 
-### Run it locally
+The server reads analytics, visitors and issues, records goal events and changes an issue's status. Recording payments is only in the skill.
 
-The server source lives in [`mcp-server/`](./mcp-server). Run it over stdio with [Bun](https://bun.sh):
+To run it yourself over stdio with [Bun](https://bun.sh):
 
 ```json
 {
@@ -87,19 +95,22 @@ The server source lives in [`mcp-server/`](./mcp-server). Run it over stdio with
 }
 ```
 
-Or with Docker:
+Or in Docker:
 
 ```bash
 docker build -t flowsery-mcp .
 docker run -i -e FLOWSERY_API_KEY=flow_ws_your_key flowsery-mcp
 ```
 
+The tools and the local options are in [`mcp-server/README.md`](./mcp-server/README.md).
+
 ## Links
 
-- [MCP Server](./mcp-server)
 - [Flowsery](https://flowsery.com)
-- [API Documentation](https://flowsery.com/docs/api-introduction)
-- [API Tokens](https://flowsery.com/api-tokens)
+- [AI agents](https://flowsery.com/features/agents)
+- [API documentation](https://flowsery.com/docs/api-introduction)
+- [API tokens](https://flowsery.com/api-tokens)
+- [Claude Code and Hermes plugin](https://github.com/Flowsery/claude-plugin)
 - Privacy policy: [flowsery.com/privacy](https://flowsery.com/privacy)
 
 ## License

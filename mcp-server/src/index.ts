@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { z, type ZodRawShape, type ZodTypeAny } from "zod";
+import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { RestClient } from "./rest-client.js";
@@ -16,6 +17,8 @@ import {
   looksLikeJwt,
   verifyOauthJwt,
 } from "./oauth.js";
+
+const SERVER_VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 const isHttpMode = process.argv.includes("--http");
 const HTTP_PORT = parseInt(process.env.PORT ?? "3100", 10);
@@ -306,7 +309,7 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
   const server = new McpServer(
     {
       name: "flowsery",
-      version: "1.0.0",
+      version: SERVER_VERSION,
     },
     { instructions: SERVER_INSTRUCTIONS },
   );

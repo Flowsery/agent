@@ -1,7 +1,7 @@
 {
   "name": "@flowsery/agent",
-  "version": "1.0.0",
-  "description": "Flowsery agent — query web analytics data from any AI agent",
+  "version": "1.4.0",
+  "description": "Flowsery agent integrations: the agent skill, the MCP server and the Gemini CLI extension for querying web analytics and session issues",
   "license": "MIT",
   "author": "Flowsery",
   "repository": {
@@ -16,10 +16,11 @@
     "web-analytics",
     "flowsery",
     "mcp",
-    "claude",
     "cursor",
     "privacy",
-    "cookie-free"
+    "cookie-free",
+    "gemini-cli",
+    "skills"
   ],
   "engines": {
     "node": ">=18.0.0"
