@@ -1,5 +1,5 @@
 {
-  "identifier": "flowsery",
+  "identifier": "flowsery-agent",
   "name": "Flowsery",
   "version": "1.4.0",
   "description": "Query Flowsery's privacy-first, cookie-free web analytics: live visitors, traffic breakdowns by 25 dimensions, goals, revenue, visitor journeys, and the bugs Flowsery's AI found in session recordings. Sign in with OAuth or an API key.",
