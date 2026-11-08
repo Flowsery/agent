@@ -16,5 +16,2675 @@
     "session-replay",
     "revenue",
     "marketing"
+  ],
+  "tools": [
+    {
+      "name": "list_workspaces",
+      "title": "List Workspaces",
+      "description": "List the workspaces this sign-in can act in, across every organization the user belongs to. Returns { status, data } with one entry per workspace: id, name, organization { id, name }, role { key, name }, permissions, isDefault and current. Call this when the user names a workspace, client or organization, or when data they expect is missing, then pass the matching id as workspaceId to every other tool. Without workspaceId, tools act in the workspace marked current. A workspace API token (flow_ws_) belongs to one workspace, so it lists only that one; a website key (flow_) belongs to one website and fails with a 400 here. Takes no arguments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "One entry per workspace with id, name, organization, role, permissions, isDefault and current. Pass id as workspaceId to other tools."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_websites",
+      "title": "List Websites",
+      "description": "List the websites the current API token can read, with id, domain, timezone, currency, and KPI goal per site. A workspace token (flow_ws_) returns every website in the workspace; a website key (flow_) returns only its own. Call this first with a workspace token: every other tool then needs websiteId or domain from this list, and omitting both fails with 'Website ID or domain is required'. Takes no parameters. Use get_metadata instead when you already know the website and only need its settings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: one entry per website with id, domain, timezone, currency, kpi, logo, and trackingId. Use id as websiteId or domain as domain in other tools."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_metadata",
+      "title": "Get Website Settings",
+      "description": "Get one website's settings: domain, timezone, currency, KPI goal name, logo, and color scheme. Read-only; nothing is changed. Call it after list_websites to learn the timezone and currency before running date-range reports, then pass that timezone to the report tools. With a workspace token pass websiteId or domain; with neither it returns the same website list as list_websites, so prefer list_websites for discovery. A website key needs no selector.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: one entry with domain, timezone, currency, kpi, kpiColorScheme, and logo. Without a selector on a workspace token, the website list instead."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_overview",
+      "title": "Get Traffic Overview",
+      "description": "Get headline totals for one website over a date range as a single row: visitors, sessions, bounce rate, average session duration, revenue, revenue per visitor, and conversion rate. Dates default to the last 30 days ending now; timezone defaults to the site setting. Every filter_* argument narrows the whole result, so filter_country plus filter_device answers 'mobile visitors from Germany' in one call. Use get_timeseries for the trend over time and a get_* breakdown tool for the split by page, source, or geography. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: a single row with visitors, sessions, bounceRate (percentage), avgSessionDuration and avgEngagedTime (seconds), revenue, renewalRevenue, refundedRevenue, revenuePerVisitor, conversionRate (percentage), kpiValue, kpiPerVisitor, kpiConversionRate, and currency for the window."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_timeseries",
+      "title": "Get Analytics Time Series",
+      "description": "Get the same metrics as get_overview bucketed by hour, day, week, or month, plus totals across the whole window. Returns one point per bucket with timestamp, name, visitors, sessions, revenue split into newRevenue, renewalRevenue and refundedRevenue, conversionRate, and kpiValue. Use this for trends and charts; use get_overview for one total and a get_* breakdown tool for a split by dimension rather than time. Dates default to the last 30 days and interval to day. Match interval to range: hourly buckets across a year return thousands of points. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "hour",
+              "day",
+              "week",
+              "month"
+            ],
+            "description": "Bucket size: hour, day, week, or month (default: day). Pick hour only for ranges of a few days."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with interval, timezone, currency, data (one point per bucket with timestamp, name, visitors, sessions, revenue, newRevenue, renewalRevenue, refundedRevenue, conversionRate, kpiValue), totals {visitors, sessions, revenue} across the window, and pagination."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_realtime",
+      "title": "Get Active Visitor Count",
+      "description": "Count the visitors active on the site within the last 5 minutes. A point-in-time number with no history: it takes no date, filter, or pagination arguments. Use get_timeseries with interval hour for recent trends and get_realtime_map when you need where those visitors are. Returns data[0].visitors. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: data[0].visitors is the count of visitors active in the last 5 minutes."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_realtime_map",
+      "title": "Get Live Visitor Map",
+      "description": "Get the visitors active on the user's own website in the last 5 minutes with their approximate city-level location, for a live map view. Coordinates are rounded to 0.1 degrees, and no IP addresses or other identifying details are returned. Use get_realtime when only the count matters, and get_countries or get_cities for geography over a historical date range. Takes only the website selector: no dates, filters, or pagination. Poll no more than once every 5 seconds. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: up to 1000 active visitors, each with visitorId, country, countryCode, region, city, latitude and longitude rounded to 0.1 degrees, browser, os, deviceType, currentUrl, referrer, and pageviews. Names, emails and per-visitor revenue are left out; use get_visitor for one specific visitor."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_pages",
+      "title": "Get Top Pages",
+      "description": "Get page paths ranked by visitors, descending, for a date range: which pages get the most traffic. Use get_breakdown with dimension entry_page for landing pages or exit_link for outbound clicks, and get_hostnames when the site serves several domains. Add filter_utm_campaign or filter_referrer to see where one source's traffic landed. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_referrers",
+      "title": "Get Top Referrers",
+      "description": "Get referrers ranked by visitors, descending: which external sites sent traffic in the date range. Recognized sites appear under a source name (Google, ChatGPT, Reddit), others under their domain. Use get_channels when you want traffic grouped into GA4-style channels (Direct, Organic Search, Paid Social) instead of individual domains, and get_campaigns or get_breakdown with dimension utm_source for traffic identified by UTM tags rather than referrer. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (referrer rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_countries",
+      "title": "Get Visitors by Country",
+      "description": "Get visitors grouped by country, ranked by visitors descending, for a date range. Coarsest of the three geographic tools: use get_regions for states or provinces and get_cities for cities, and add filter_country to either to drill into one country. Use get_realtime_map for where visitors are right now instead of over a range. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (country rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_regions",
+      "title": "Get Visitors by Region",
+      "description": "Get visitors grouped by region or state name (such as California or Bavaria), ranked by visitors descending, for a date range. Sits between get_countries (coarser) and get_cities (finer); combine with filter_country to list the regions of one country. Pass filter_region to other tools to scope them to one region. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (region rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_cities",
+      "title": "Get Visitors by City",
+      "description": "Get visitors grouped by city, ranked by visitors descending, for a date range. Finest geographic tool and the longest tail: pass filter_country or filter_region first so the top rows are meaningful, and raise limit above the default 100 (max 1000) when you need more. Use get_countries or get_regions for a coarser view. Rows carry value, visitors, revenue, and percentage with pagination.total. Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (city rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_devices",
+      "title": "Get Visitors by Device",
+      "description": "Get visitors split by device type (Desktop, Mobile, Tablet), ranked by visitors descending, for a date range. Use this for the mobile-versus-desktop question; use get_browsers or get_operating_systems for the software split. Pass filter_device to any other tool to restrict it to one device type instead. Three rows at most, so pagination rarely matters. Rows carry value, visitors, revenue, and percentage. Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (up to three rows, Desktop, Mobile, Tablet, with value, visitors, revenue, percentage), and pagination."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_browsers",
+      "title": "Get Visitors by Browser",
+      "description": "Get visitors grouped by browser name (Chrome, Safari, Firefox, Edge, and others), ranked by visitors descending, for a date range. Names only: use get_breakdown with dimension browser_version for versions, get_operating_systems for the OS split, and get_devices for desktop versus mobile. Pass filter_browser to other tools to scope them to one browser. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (browser rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_operating_systems",
+      "title": "Get Visitors by Operating System",
+      "description": "Get visitors grouped by operating system (Mac OS, Windows, iOS, Android, Linux, and others), ranked by visitors descending, for a date range. Names only: use get_breakdown with dimension os_version for versions, get_browsers for the browser split, and get_devices for desktop versus mobile. Pass filter_os to other tools to scope them to one OS. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (operating system rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_campaigns",
+      "title": "Get Campaign Performance",
+      "description": "Get UTM campaigns (utm_campaign values) ranked by visitors descending for a date range. Only visits tagged with utm_campaign appear, so untagged traffic is absent; use get_referrers or get_channels for the full source picture. Use get_breakdown with dimension utm_source, utm_medium, utm_term, utm_content, or all_params for the other tracking parameters. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (utm_campaign rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_hostnames",
+      "title": "Get Traffic by Hostname",
+      "description": "Get visitors grouped by hostname, ranked by visitors descending, for a date range. Useful when one website tracks several domains or subdomains (www, app, docs); a single-domain site returns one row. Use get_pages for paths within a host, and pass filter_hostname to any other tool to scope it to one host. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (hostname rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_channels",
+      "title": "Get Traffic by Channel",
+      "description": "Get visitors grouped into GA4-aligned marketing channels (Organic Search, Paid Search, Organic Social, Paid Social, Email, Display, Referral, Direct, Affiliate, Video, SMS, Audio), ranked by visitors descending, for a date range. Channels are classified from the referrer domain and utm_medium or utm_source. Use this first for the traffic mix, then get_referrers for the domains behind Referral and Organic Social, or get_campaigns for tagged campaigns. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (channel rows with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_goals",
+      "title": "Get Goal Completions",
+      "description": "Get every configured goal (custom events plus the auto-created payment and free_trial goals) with how many visitors completed it in the date range. Use this to compare conversions across goals; use get_overview for conversion_rate against the site's KPI goal, get_breakdown with dimension goal for the same list with revenue and percentage, and get_visitor for one person's completions. Dates default to the last 30 days; filter_* narrows the visitors counted and limit/offset page the goal list. Goals are created by track_goal. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (one entry per configured goal with its name and completion count for the window), and pagination."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_breakdown",
+      "title": "Get Breakdown by Dimension",
+      "description": "Group visitors by any one of 25 dimensions, ranked by visitors descending, for a date range. Generic form of the named get_* breakdown tools: use it for dimensions without one (entry_page, exit_link, browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, via, all_params); for page, referrer, country, region, city, device, browser, os, campaign, hostname, channel, or goal the dedicated tool returns the same rows. Combine dimension with filter_* to drill in: dimension page plus filter_utm_campaign shows where one campaign landed. Rows carry value, visitors, revenue, and percentage with pagination.total; limit defaults to 100 (max 1000). Dates default to the last 30 days; all filter_* arguments apply. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the reporting window, date or datetime (e.g. \"2026-01-01\" or \"2026-01-01T00:00:00Z\"). Defaults to 30 days ago."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the reporting window (e.g. \"2026-01-31\"). Defaults to now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA timezone used to bound and bucket the window (e.g. \"America/New_York\"). Defaults to the website timezone from get_metadata."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-1000, default 100)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip for pagination (default 0). Compare offset + limit against pagination.total in the response."
+          },
+          "filter_country": {
+            "type": "string",
+            "description": "Filter by country name as returned by get_countries (e.g. \"United States\"). Every filter_* value accepts the same operators: \"v\" is, \"!v\" is not, \"~v\" contains, \"!~v\" does not contain, \"a|b\" any of. Filters combine with AND."
+          },
+          "filter_region": {
+            "type": "string",
+            "description": "Filter by region name as returned by get_regions (e.g. \"California\")"
+          },
+          "filter_city": {
+            "type": "string",
+            "description": "Filter by city name as returned by get_cities"
+          },
+          "filter_device": {
+            "type": "string",
+            "description": "Filter by device type as returned by get_devices: \"Desktop\", \"Mobile\" or \"Tablet\". Matching is case-sensitive."
+          },
+          "filter_browser": {
+            "type": "string",
+            "description": "Filter by browser name as returned by get_browsers (e.g. \"Chrome\")"
+          },
+          "filter_os": {
+            "type": "string",
+            "description": "Filter by operating system name as returned by get_operating_systems (e.g. \"iOS\")"
+          },
+          "filter_referrer": {
+            "type": "string",
+            "description": "Filter by referrer as returned by get_referrers: a source name such as \"Google\" for recognized sites, otherwise the domain"
+          },
+          "filter_ref": {
+            "type": "string",
+            "description": "Filter by ref URL parameter"
+          },
+          "filter_source": {
+            "type": "string",
+            "description": "Filter by source URL parameter"
+          },
+          "filter_via": {
+            "type": "string",
+            "description": "Filter by via URL parameter"
+          },
+          "filter_utm_source": {
+            "type": "string",
+            "description": "Filter by UTM source"
+          },
+          "filter_utm_medium": {
+            "type": "string",
+            "description": "Filter by UTM medium"
+          },
+          "filter_utm_campaign": {
+            "type": "string",
+            "description": "Filter by UTM campaign"
+          },
+          "filter_utm_term": {
+            "type": "string",
+            "description": "Filter by UTM term"
+          },
+          "filter_utm_content": {
+            "type": "string",
+            "description": "Filter by UTM content"
+          },
+          "filter_page": {
+            "type": "string",
+            "description": "Filter by page path as returned by get_pages (e.g. \"/pricing\")"
+          },
+          "filter_hostname": {
+            "type": "string",
+            "description": "Filter by hostname as returned by get_hostnames (e.g. \"app.example.com\")"
+          },
+          "filter_entry_page": {
+            "type": "string",
+            "description": "Filter by entry/landing page"
+          },
+          "filter_channel": {
+            "type": "string",
+            "description": "Filter by marketing channel as returned by get_channels (e.g. \"Organic Search\")"
+          },
+          "filter_goal": {
+            "type": "string",
+            "description": "Filter to visitors who completed this goal name (as returned by get_goals)"
+          },
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "device",
+              "page",
+              "entry_page",
+              "exit_link",
+              "hostname",
+              "referrer",
+              "channel",
+              "campaign",
+              "goal",
+              "country",
+              "region",
+              "city",
+              "browser",
+              "browser_version",
+              "os",
+              "os_version",
+              "utm_source",
+              "utm_medium",
+              "utm_campaign",
+              "utm_term",
+              "utm_content",
+              "ref",
+              "source",
+              "via",
+              "all_params"
+            ],
+            "description": "Dimension to group by. Without a dedicated tool: entry_page (landing page), exit_link (outbound click), browser_version, os_version, utm_source, utm_medium, utm_term, utm_content, ref, source, via, all_params (every tracking parameter at once). With one: device, page, hostname, referrer, channel, campaign (same as utm_campaign), goal, country, region, city, browser, os."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "required": [
+          "dimension"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (rows of the requested dimension with value, visitors, revenue, percentage, ordered by visitors descending), and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_visitor",
+      "title": "Get Visitor Profile",
+      "description": "Get the analytics for one visitor to the user's own website: country and city, device and browser, acquisition source, activity (visit and pageview counts, visited pages, completed goals), revenue totals, whether the visitor is identified, and a timeline of pageviews, goals, and purchase amounts, newest first. Names, emails, user IDs, IP addresses, and card or billing details are never returned. Call it only when the user asks about a specific visitor, and share only what answers the question. profile is null for anonymous visitors; each list is capped at the 100 most recent items. Use the aggregate get_* tools for questions about many visitors. visitorId is the visitor record ID from get_realtime_map or the dashboard visitor view, not the _fs_vid cookie value; an unknown id, or one from another website, fails with 'Visitor not found'. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "visitorId": {
+            "type": "string",
+            "description": "Visitor record ID from get_realtime_map or the dashboard visitor view (not the _fs_vid cookie value)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "required": [
+          "visitorId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: visitorId, identity, source, sourceIconUrl, activity, revenue, profile ({ identified: true } for identified visitors, null when anonymous; no names, emails or user IDs), and activityTimeline sorted newest first."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_issues",
+      "title": "List Detected Issues",
+      "description": "List issues the AI found while analyzing session recordings: bugs, broken flows, and UX problems, deduplicated across sessions and ranked by severity (or by last seen with sort recency). Each row has title, severity, status, sessions affected, and first/last seen; the response also carries site-wide open, in_progress, and resolved counts plus pagination.total. Start here for 'what is broken', then call get_issue with an id for occurrences, steps to replicate, and comments. Suspended issues are hidden unless status is suspended, so an issue that vanished was probably suspended, not deleted. On a free trial only the first 10 issues are listed and counted. Limit defaults to 100 (max 1000). Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "resolved",
+              "suspended"
+            ],
+            "description": "Filter by status. Omit for open, in_progress, and resolved together; suspended issues only appear with status=suspended"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "description": "Filter by severity"
+          },
+          "search": {
+            "type": "string",
+            "description": "Match against issue title and description"
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "severity",
+              "recency"
+            ],
+            "description": "Order by severity (default) or recency (last seen)"
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max issues to return (1-1000, default 100)"
+          },
+          "offset": {
+            "type": "number",
+            "description": "Issues to skip for pagination (default 0)"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status, data (issues with id, title, description, severity, status, sessionsCount, firstSeenAt, lastSeenAt, stepsToReplicate, externalTicketUrl), counts {open, inProgress, resolved} for the whole site, and pagination {limit, offset, total}."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_issue",
+      "title": "Get Issue Detail",
+      "description": "Get full detail for one AI-detected issue: every occurrence with timestamps, the sessions behind it, steps to replicate, comments, and any linked Linear or Jira ticket. Get issueId from list_issues; use this only when you need the evidence behind one issue. An unknown id, or one from another website, fails with 'Issue not found'; on a free trial only the first 10 issues are available, and later ones fail as not included in the current plan. Each session lists its recording id, the anonymous visitorUid, start URL and page title, timing and event counts; no names, emails or locations are returned, so surface only what answers the question. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "issueId": {
+            "type": "string",
+            "description": "Issue ID from list_issues"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "required": [
+          "issueId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: the issue with its occurrences, affected sessions, steps to replicate, comments, and external ticket link if any."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_issue_status",
+      "title": "Update Issue Status",
+      "description": "Set an issue's status to open, in_progress, resolved, or suspended and return the updated issue. Only the status changes; title, severity, occurrences, and comments stay, and any status can be set again later, so this is reversible. Confirm which state the user means before calling: resolved asserts the bug is fixed, suspended hides a known non-problem from the default list_issues result. Not a delete: issues cannot be removed through this server. Get issueId from list_issues; an unknown id fails with 'Issue not found', and on a free trial issues beyond the first 10 fail as not included in the current plan. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "issueId": {
+            "type": "string",
+            "description": "Issue ID from list_issues"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "resolved",
+              "suspended"
+            ],
+            "description": "New status. resolved asserts the bug is fixed; suspended hides a known non-problem from default listings; open and in_progress keep it visible"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "required": [
+          "issueId",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: the full issue detail after the change, with the new status."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "track_goal",
+      "title": "Track Goal Event",
+      "description": "Record one completion of a custom goal. The goal is created on first use, so no setup call is needed; names are lowercase letters, digits, underscores, and hyphens, max 64 chars. Pass visitorUid (the anonymous visitor ID Flowsery assigned on the user's own website) so the completion attaches to that visitor's sessions and source; omit it for an anonymous completion. Each call appends a completion, so repeating it counts the goal twice. Undo with delete_goals. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "name": {
+            "type": "string",
+            "description": "Goal name: lowercase letters, numbers, underscores, hyphens only (max 64 chars). E.g. \"newsletter_signup\", \"add-to-cart\""
+          },
+          "visitorUid": {
+            "type": "string",
+            "description": "Anonymous visitor ID Flowsery assigned on the user's own website (the _fs_vid value). Omit to record an anonymous completion."
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Up to 10 string key-value pairs stored with the completion. More than 10 fails with a 400."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: a confirmation message. The completion itself is written asynchronously and appears in get_goals shortly after."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_goals",
+      "title": "Delete Goal Events",
+      "description": "Permanently delete recorded goal completions matching every filter given (filters combine with AND). At least one of visitorId, name, startAt, or endAt is required or the call fails before reaching the API; startAt and endAt are independent, so one bound alone is allowed. Without a date range, matches are deleted across the whole history. Returns the number of rows deleted. Cannot be undone: restate website, filters, and range and get explicit confirmation first. Deletes completions only; the goal definition stays and get_goals still lists it. Use update_issue_status for issues. Requires websiteId or domain with a workspace token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "websiteId": {
+            "type": "string",
+            "description": "Website ID from list_websites. Required with a workspace token unless domain is given; ignored with a website key."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Website domain from list_websites (e.g. \"example.com\"). Alternative to websiteId with a workspace token."
+          },
+          "visitorId": {
+            "type": "string",
+            "description": "Delete completions of this visitor (the id get_visitor takes). Combined with the other filters using AND."
+          },
+          "name": {
+            "type": "string",
+            "description": "Delete completions of this goal name (as listed by get_goals)"
+          },
+          "startAt": {
+            "type": "string",
+            "description": "ISO 8601 start of the deletion window, inclusive (e.g. \"2026-01-01T00:00:00Z\"). May be used without endAt."
+          },
+          "endAt": {
+            "type": "string",
+            "description": "ISO 8601 end of the deletion window, inclusive (e.g. \"2026-01-31T23:59:59Z\"). May be used without startAt."
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "Workspace to act in: an id from list_workspaces. Omit to use the default workspace. Use the same workspaceId for every call about the same workspace, since ids from one workspace do not exist in another"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "description": "Object with status and data: deleted (number of completions removed) and a confirmation message."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
   ]
 }
