@@ -1,0 +1,21 @@
+mcp-server/src/setup-page.ts
+  s_2c22b48162e565::t_3cb4062500827d 1-112
+mcp-server/src/index.ts
+  s_2c22b48162e565::t_87056afb80d59a 13,276-287,1521-1525
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e8755a98a8bbbf959fd0d611d0ebef1914b432b",
+  "prompts": {},
+  "sessions": {
+    "s_2c22b48162e565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36a8f890-929d-4352-802e-a8d0347f2d4e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Taras Shynkarenko <taras.shinkarenko@gmail.com>"
+    }
+  }
+}
