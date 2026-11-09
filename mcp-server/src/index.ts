@@ -10,6 +10,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { RestClient } from "./rest-client.js";
 import { withoutSchemaDialect } from "./schema-dialect.js";
+import { isSetupPageRequest, sendSetupPage, type SetupPageConfig } from "./setup-page.js";
 import {
   oauthConfigFromEnv,
   handleProtectedResourceMetadata,
@@ -271,6 +272,18 @@ const SERVER_INSTRUCTIONS =
 
 const SERVER_DESCRIPTION =
   "Flowsery web analytics for the websites you track. Lets an agent answer traffic questions (visitors, sessions, bounce rate, revenue and conversion over any date range, trends by hour/day/week/month, top pages, referrers, channels, UTM campaigns, countries, devices, browsers and goals, all filterable), see who is on the site right now, look up one visitor's journey, and review the bugs and UX issues Flowsery's AI found in session recordings. It can also record or delete goal completions and change an issue's status.";
+
+const SETUP_PAGE: SetupPageConfig = {
+  key: "flowsery",
+  title: "Flowsery",
+  description: SERVER_DESCRIPTION,
+  mcpUrl: "https://mcp.flowsery.com/mcp",
+  websiteUrl: "https://flowsery.com/features/agents",
+  repoUrl: "https://github.com/Flowsery/agent",
+  iconUrl: "https://raw.githubusercontent.com/Flowsery/agent/main/assets/icon.svg",
+  apiTokensUrl: "https://flowsery.com/api-tokens",
+  apiKeyExample: "flow_ws_your_key",
+};
 
 const nullableString = z.string().nullable();
 const optionalNumber = z.number().nullable().optional();
@@ -1505,6 +1518,11 @@ const main = async (): Promise<void> => {
       }
 
       if (req.url === "/mcp") {
+        if (isSetupPageRequest(req)) {
+          sendSetupPage(SETUP_PAGE, req, res);
+          return;
+        }
+
         // Extract Bearer token from the incoming request
         const authHeader = req.headers.authorization ?? "";
         const bearerToken = authHeader.startsWith("Bearer ")
