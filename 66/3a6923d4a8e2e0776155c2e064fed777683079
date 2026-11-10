@@ -1,0 +1,25 @@
+README.md
+  s_53b9b50a79a14f::t_a24b14ae7899f0 3,165,208-209,222-223,301
+lhm.plugin.json
+  s_53b9b50a79a14f::t_1b5679206075f1 2578,2636,2688-2824
+mcp-server/declared-tools.txt
+  s_53b9b50a79a14f::t_e16be8bb6f978b 27-28
+mcp-server/src/index.ts
+  s_53b9b50a79a14f::t_f945d63d4d6508 579-585,1310,1361,1414-1552
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "663a6923d4a8e2e0776155c2e064fed777683079",
+  "prompts": {},
+  "sessions": {
+    "s_53b9b50a79a14f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c62add9c-9c2f-4487-a4fe-18e17bf78b8d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Taras Shynkarenko <taras.shinkarenko@gmail.com>"
+    }
+  }
+}
