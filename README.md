@@ -1,6 +1,6 @@
 # Flowsery agent
 
-Let your AI agent query Flowsery, the privacy-first, cookie-free web analytics: live visitors, traffic breakdowns by 25 dimensions, goals, revenue, visitor journeys, and the bugs, broken flows and UX problems Flowsery's AI found in session recordings. 26 MCP tools, OAuth sign-in, no cookies on your site.
+Let your AI agent query Flowsery, the privacy-first, cookie-free web analytics: live visitors, traffic breakdowns by 25 dimensions, goals, revenue, visitor journeys, and the bugs, broken flows and UX problems Flowsery's AI found in session recordings. 28 MCP tools, OAuth sign-in, no cookies on your site.
 
 ## Connect in 30 seconds
 
@@ -162,7 +162,7 @@ Create an API token on [the API tokens page](https://flowsery.com/api-tokens) an
 
 ## Tools
 
-26 tools. Every report takes a date range, a timezone and filters on country, region, city, device, browser, OS, page, hostname, referrer, channel and UTM parameters. Recording payments for revenue attribution is in the agent skill, not the MCP server.
+28 tools. Every report takes a date range, a timezone and filters on country, region, city, device, browser, OS, page, hostname, referrer, channel and UTM parameters.
 
 ### Workspaces and websites
 
@@ -205,6 +205,8 @@ Create an API token on [the API tokens page](https://flowsery.com/api-tokens) an
 | `get_goals` | Every goal, including the automatic payment and free trial goals, with completions in the window | No |
 | `track_goal` | Record one completion of a custom goal; the goal is created on first use | Yes |
 | `delete_goals` | Permanently delete goal completions that match the filters | Yes |
+| `track_payment` | Record a payment for revenue attribution, or mark one refunded; never charges anyone | Yes |
+| `delete_payments` | Permanently delete payment records that match the filters | Yes |
 | `get_visitor` | One visitor's location, device, source, visits, goals, revenue and timeline | No |
 
 ### Session issues
@@ -217,8 +219,8 @@ Create an API token on [the API tokens page](https://flowsery.com/api-tokens) an
 
 ## Roles, permissions and safety
 
-- Every call runs with the signed-in member's role in the workspace. Reads need `workspace.read`; tracking or deleting goals and changing an issue's status need `flowsery.write`, which Admin and Editor hold.
-- Read-only tools carry `readOnlyHint`. Only `track_goal`, `delete_goals` and `update_issue_status` change anything, so clients that confirm writes ask before those three.
+- Every call runs with the signed-in member's role in the workspace. Reads need `workspace.read`; tracking or deleting goals and payments and changing an issue's status need `flowsery.write`, which Admin and Editor hold.
+- Read-only tools carry `readOnlyHint`. Only `track_goal`, `delete_goals`, `track_payment`, `delete_payments` and `update_issue_status` change anything, so clients that confirm writes ask before those five. Payment tools change analytics records only; they never charge, refund or touch a payment provider.
 - Visitor tools return the analytics of your own websites. `get_realtime_map` rounds coordinates to 0.1 degrees, and no tool returns IP addresses or billing details.
 - A website key (`flow_`) reaches one website; a workspace token (`flow_ws_`) or an OAuth sign-in reaches every website in the workspace.
 
@@ -296,7 +298,7 @@ No. Point your client at `https://mcp.flowsery.com/mcp` and sign in with the ema
 It sees what your Flowsery dashboard shows for your own websites: approximate location, device, source and activity. No IP addresses, and live map coordinates are rounded.
 
 **Can it change my analytics?**
-Only three tools write: `track_goal`, `delete_goals` and `update_issue_status`. Everything else is read-only.
+Five tools write: `track_goal`, `delete_goals`, `track_payment`, `delete_payments` and `update_issue_status`. Everything else is read-only.
 
 **Does it work with several websites?**
 Yes. Call `list_websites` and pass a `websiteId` or `domain` to the report tools.
