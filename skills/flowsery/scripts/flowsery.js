@@ -147,6 +147,13 @@ const addWebsiteSelectorToBody = (parsed, body) => {
   if (parsed.domain) body.domain = parsed.domain;
 };
 
+const addTrackingContextToBody = (parsed, body) => {
+  const sessionUid = parsed["session-uid"] || parsed.sessionUid;
+  if (sessionUid && sessionUid !== true) body.sessionUid = sessionUid;
+  if (parsed.timezone && parsed.timezone !== true)
+    body.timezone = parsed.timezone;
+};
+
 const addWebsiteSelectorToParams = (parsed, params) => {
   if (parsed.websiteId || parsed["website-id"]) {
     params.set("websiteId", parsed.websiteId || parsed["website-id"]);
@@ -406,7 +413,7 @@ const COMMANDS = {
     const parsed = parseArgs(args);
     if (!parsed.name) {
       error(
-        'Usage: ./scripts/flowsery.js goals:create --name "goal_name" --visitor-uid <uid> [--metadata \'{"key":"val"}\']',
+        'Usage: ./scripts/flowsery.js goals:create --name "goal_name" --visitor-uid <uid> [--session-uid <uid>] [--timezone <IANA>] [--metadata \'{"key":"val"}\']',
       );
       process.exit(1);
     }
@@ -415,6 +422,7 @@ const COMMANDS = {
     if (parsed["visitor-uid"] || parsed.visitorUid) {
       body.visitorUid = parsed["visitor-uid"] || parsed.visitorUid;
     }
+    addTrackingContextToBody(parsed, body);
     if (parsed.metadata) {
       try {
         body.metadata = JSON.parse(parsed.metadata);
@@ -468,7 +476,7 @@ const COMMANDS = {
       !(parsed["transaction-id"] || parsed.transactionId)
     ) {
       error(
-        "Usage: ./scripts/flowsery.js payments:create --amount 29.99 --transaction-id pay_123 [--currency USD] [--timestamp 2026-01-15T10:00:00Z] [--visitor-uid <uid>]",
+        "Usage: ./scripts/flowsery.js payments:create --amount 29.99 --transaction-id pay_123 [--currency USD] [--timestamp 2026-01-15T10:00:00Z] [--visitor-uid <uid>] [--session-uid <uid>] [--timezone <IANA>] [--customer-ip <ip>] [--customer-user-agent <ua>]",
       );
       process.exit(1);
     }
@@ -487,6 +495,11 @@ const COMMANDS = {
     if (parsed.name) body.name = parsed.name;
     if (parsed["customer-id"] || parsed.customerId)
       body.customerId = parsed["customer-id"] || parsed.customerId;
+    if (parsed["customer-ip"] && parsed["customer-ip"] !== true)
+      body.customerIp = parsed["customer-ip"];
+    if (parsed["customer-user-agent"] && parsed["customer-user-agent"] !== true)
+      body.customerUserAgent = parsed["customer-user-agent"];
+    addTrackingContextToBody(parsed, body);
     if (parsed.renewal) body.isRenewal = true;
     if (parsed.refund) body.isRefund = true;
     const data = await request("POST", "/api/v1/payments", body);

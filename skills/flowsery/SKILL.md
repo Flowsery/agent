@@ -5,7 +5,7 @@ description: >
   Retrieve real-time visitor counts, time series data, breakdowns by 25 dimensions (device,
   page, country, referrer, campaign, channel, UTM params, exit links, etc.), visitor profiles
   with activity timelines, custom goal tracking, and revenue attribution.
-last-updated: 2026-11-08
+last-updated: 2026-11-16
 allowed-tools: Bash(./scripts/flowsery.js:*)
 ---
 
@@ -141,14 +141,14 @@ All breakdown commands return rows with `value`, `visitors`, `revenue` and `perc
 
 | Command                                                                  | Description                  |
 | ------------------------------------------------------------------------ | ---------------------------- |
-| `./scripts/flowsery.js goals:create --name "signup" --visitor-uid <uid>` | Append one goal completion. The goal is created on first use; repeating the call counts it twice. Omit `--visitor-uid` for an anonymous completion |
+| `./scripts/flowsery.js goals:create --name "signup" --visitor-uid <uid>` | Append one goal completion. The goal is created on first use; repeating the call counts it twice. Omit `--visitor-uid` for an anonymous completion. `--session-uid <uid>` (the `_fs_sid` value) ties it to that session; `--timezone <IANA>` is the visitor's timezone, used to place them in a country when the call comes from a server |
 | `./scripts/flowsery.js goals:delete --name "signup"`                     | Permanently delete completions matching all given filters (AND). Needs at least one of `--visitor-id`, `--name`, `--start-at`, `--end-at`; confirm first |
 
 ### Revenue Tracking
 
 | Command                                                                                        | Description                      |
 | ---------------------------------------------------------------------------------------------- | -------------------------------- |
-| `./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123` | Record a payment. `--amount` is required; `--currency` defaults to `USD`; `--timestamp <ISO>` backdates it (default: now). The transaction id must be unique: sending one that exists returns 409, so do not retry a payment that already went through. `--refund` with an existing id marks that payment refunded instead of adding a record. Also records a `payment` goal |
+| `./scripts/flowsery.js payments:create --amount 29.99 --currency USD --transaction-id pay_123` | Record a payment. `--amount` is required; `--currency` defaults to `USD`; `--timestamp <ISO>` backdates it (default: now). The transaction id must be unique: sending one that exists returns 409, so do not retry a payment that already went through. `--refund` with an existing id marks that payment refunded instead of adding a record. Also records a `payment` goal. Attribution flags: `--visitor-uid`, `--session-uid`, `--customer-id`, `--email`, `--name`, `--timezone <IANA>`. From a server that cannot match the payment to a visitor, `--customer-ip <ip>` and `--customer-user-agent <ua>` pass the buyer's IP and User-Agent at checkout; Flowsery keeps only the country, browser, OS and device it resolves from them |
 | `./scripts/flowsery.js payments:delete --transaction-id pay_123`                               | Permanently delete payments matching all given filters (AND). Needs at least one of `--transaction-id`, `--visitor-id`, `--start-at`, `--end-at`; prefer `--refund` to keep history |
 
 ### Common Flags (all query commands)

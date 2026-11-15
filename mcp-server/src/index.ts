@@ -1327,6 +1327,18 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .describe(
             "Anonymous visitor ID Flowsery assigned on the user's own website (the _fs_vid value). Omit to record an anonymous completion.",
           ),
+        sessionUid: z
+          .string()
+          .optional()
+          .describe(
+            "Session ID of the visitor's current session (the _fs_sid value). Ties the completion to that session; without it a server-side call uses the visitor's latest active session.",
+          ),
+        timezone: z
+          .string()
+          .optional()
+          .describe(
+            'The visitor\'s IANA timezone (e.g. "Europe/Berlin"). Helps place the visitor in a country when the call comes from a server or proxy.',
+          ),
         metadata: z
           .record(z.string())
           .optional()
@@ -1442,7 +1454,15 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
         sessionUid: z
           .string()
           .optional()
-          .describe("Session ID of the visitor's current session"),
+          .describe(
+            "Session ID of the visitor's current session (the _fs_sid value), so the payment is tied to that session",
+          ),
+        timezone: z
+          .string()
+          .optional()
+          .describe(
+            'The visitor\'s IANA timezone (e.g. "Europe/Berlin"). Helps place the visitor in a country when the call comes from a server or proxy.',
+          ),
         email: z
           .string()
           .optional()
@@ -1471,6 +1491,19 @@ const createMcpServer = (apiClient?: RestClient): McpServer => {
           .optional()
           .describe(
             'ISO 8601 time the payment happened (e.g. "2026-01-15T10:30:00Z"), for backfilling. Defaults to now.',
+          ),
+        customerIp: z
+          .string()
+          .optional()
+          .describe(
+            "The buyer's IP address at checkout, for a server-side call that cannot match the payment to a visitor. Flowsery keeps only the country it resolves from it.",
+          ),
+        customerUserAgent: z
+          .string()
+          .max(1024)
+          .optional()
+          .describe(
+            "The buyer's User-Agent at checkout, for the same case. Flowsery keeps the browser, OS and device it resolves from it.",
           ),
       },
       outputSchema: envelope(
