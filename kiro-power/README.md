@@ -12,6 +12,11 @@ The first tool call opens a browser to sign in with your Flowsery account. There
 
 You need a Flowsery account: [flowsery.com](https://flowsery.com).
 
+## Privacy and support
+
+- Privacy policy: [flowsery.com/privacy](https://flowsery.com/privacy)
+- Support: [contact@flowsery.com](mailto:contact@flowsery.com)
+
 ## What is in this folder
 
 | Path | What it is |

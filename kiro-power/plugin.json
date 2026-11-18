@@ -5,6 +5,7 @@
   "description": "Query web analytics from your AI agent: real-time visitors, traffic breakdowns, revenue, goals, visitor profiles and the issues Flowsery found in session recordings. Privacy-first, cookie-free.",
   "author": {
     "name": "Flowsery",
+    "email": "contact@flowsery.com",
     "url": "https://flowsery.com"
   },
   "homepage": "https://flowsery.com/features/agents",
