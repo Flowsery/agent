@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "flowsery",
+  "version": "1.5.0",
+  "description": "Query web analytics from your AI agent: real-time visitors, traffic breakdowns, revenue, goals, visitor profiles and the issues Flowsery found in session recordings. Privacy-first, cookie-free.",
+  "author": {
+    "name": "Flowsery",
+    "url": "https://flowsery.com"
+  },
+  "homepage": "https://flowsery.com/features/agents",
+  "repository": "https://github.com/Flowsery/agent",
+  "license": "MIT",
+  "keywords": [
+    "flowsery",
+    "web analytics",
+    "website traffic",
+    "bounce rate",
+    "conversion rate",
+    "revenue attribution",
+    "utm campaigns",
+    "session recordings"
+  ]
+}
