@@ -1,6 +1,6 @@
 {
   "name": "flowsery",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Privacy-first web analytics and session issues from Gemini CLI",
   "contextFileName": "GEMINI.md",
   "mcpServers": {

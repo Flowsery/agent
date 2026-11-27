@@ -12,7 +12,7 @@ Any other MCP client needs only the URL, `https://mcp.flowsery.com/mcp`. The fir
 
 ## What this repo is
 
-This repo holds every Flowsery agent integration except the Claude Code and Hermes Agent plugin:
+This repo holds every Flowsery agent integration except the Claude Code plugin and the Hermes Agent plugin:
 
 | Path | What it is |
 | --- | --- |
@@ -23,14 +23,14 @@ This repo holds every Flowsery agent integration except the Claude Code and Herm
 | `lhm.plugin.json` | The LobeHub marketplace listing for the hosted MCP server. |
 | [`kiro-power/`](./kiro-power) | The Kiro power. It connects to the hosted MCP server and signs in with OAuth. |
 
-The Claude Code and Hermes Agent plugin lives in [Flowsery/claude-plugin](https://github.com/Flowsery/claude-plugin). It signs in with OAuth and never asks for an API key, which the Claude plugin directory and the Hermes catalog both require, so it ships its own MCP-only skill instead of the script skill here.
+The Claude Code plugin lives in [Flowsery/claude-plugin](https://github.com/Flowsery/claude-plugin) and the Hermes Agent plugin in [Flowsery/hermes-plugin](https://github.com/Flowsery/hermes-plugin). Both sign in with OAuth and ship their own MCP-only skill instead of the script skill here.
 
 ## Pick your install
 
 | You use | Install | Sign-in |
 | --- | --- | --- |
 | Claude Code | `/plugin install flowsery --marketplace Flowsery/claude-plugin` | OAuth |
-| Hermes Agent | `hermes plugins install flowsery` | OAuth |
+| Hermes Agent | `hermes plugins install flowsery`, from [Flowsery/hermes-plugin](https://github.com/Flowsery/hermes-plugin) | OAuth |
 | Gemini CLI | `gemini extensions install https://github.com/Flowsery/agent` | OAuth |
 | Claude Desktop, Cursor, ChatGPT or any MCP client | Add `https://mcp.flowsery.com/mcp` as a remote server | OAuth, or an API key header |
 | Cursor, Codex, Windsurf, Claude Code or any agent with skills | `npx skills add Flowsery/agent` | API key |
@@ -133,6 +133,18 @@ gemini extensions install https://github.com/Flowsery/agent
 hermes plugins install flowsery
 hermes plugins enable flowsery
 ```
+
+This installs [Flowsery/hermes-plugin](https://github.com/Flowsery/hermes-plugin), which signs in through your browser. On a server without a browser, add the server to `~/.hermes/config.yaml` with an API key from [flowsery.com/api-tokens](https://flowsery.com/api-tokens) instead:
+
+```yaml
+mcp_servers:
+  flowsery:
+    url: "https://mcp.flowsery.com/mcp"
+    headers:
+      Authorization: "Bearer ${FLOWSERY_API_KEY}"
+```
+
+Put `FLOWSERY_API_KEY=...` in `~/.hermes/.env`.
 
 ### Headless agents and clients without OAuth
 
@@ -304,15 +316,16 @@ Five tools write: `track_goal`, `delete_goals`, `track_payment`, `delete_payment
 **Does it work with several websites?**
 Yes. Call `list_websites` and pass a `websiteId` or `domain` to the report tools.
 
-**What's the difference between this repo and Flowsery/claude-plugin?**
-The plugin is the Claude Code and Hermes package: OAuth only, with a skill that drives these MCP tools. This repo has the server's source, the API-key skill for `npx skills add` and the Gemini extension.
+**What's the difference between this repo and Flowsery/claude-plugin or Flowsery/hermes-plugin?**
+Those are the Claude Code and Hermes Agent packages: OAuth only, with a skill that drives these MCP tools. This repo has the server's source, the API-key skill for `npx skills add` and the Gemini extension.
 
 ## Links
 
 - [Flowsery](https://flowsery.com)
 - [AI agents](https://flowsery.com/features/agents)
 - [API tokens](https://flowsery.com/api-tokens)
-- [Claude Code and Hermes plugin](https://github.com/Flowsery/claude-plugin)
+- [Claude Code plugin](https://github.com/Flowsery/claude-plugin)
+- [Hermes Agent plugin](https://github.com/Flowsery/hermes-plugin)
 - Privacy policy: [flowsery.com/privacy](https://flowsery.com/privacy)
 
 ## License
