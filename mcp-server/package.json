@@ -1,6 +1,6 @@
 {
   "name": "@flowsery/mcp-server",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Flowsery Analytics MCP Server — AI agent integration for privacy-first web analytics",
   "homepage": "https://flowsery.com",
   "repository": {
