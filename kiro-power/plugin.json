@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "flowsery",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Query web analytics from your AI agent: real-time visitors, traffic breakdowns, revenue, goals, visitor profiles and the issues Flowsery found in session recordings. Privacy-first, cookie-free.",
   "author": {
     "name": "Flowsery",
